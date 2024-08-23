@@ -20,6 +20,13 @@ public:
     ResourceMonitor();
 
 private:
+
+    //ロボットの識別ID
+    std::string robot_id;
+
+    //ビルディングID
+    std::string building_id;
+
     // リソースを表す構造体
     struct Resource
     {
@@ -39,7 +46,7 @@ private:
     void check_and_access_resources();
 
     // サーバーにリソース登録リクエストを送信する関数
-    nlohmann::json access_resource_server(const Resource &resource);
+    nlohmann::json access_resource_server(const Resource &resource, const std::string api_name);
 
     // リソース登録解除を行う関数
     // void release_resource(const Resource &resource);
@@ -64,9 +71,8 @@ private:
 
     geometry_msgs::msg::Pose current_position_;  // 現在位置
     std::vector<Resource> route_resources_;  // 経路上のリソース
-    std::string passing_resource; //ロボットが専有しているリソース
+    std::string registered_resource; //ロボットが専有しているリソース
 
-    bool resource_registered_;  // リソースが登録されているかどうかのフラグ
     bool first_fleet_message_received_; //初めてフリートメッセージをサブスクライブしたかかどうかのフラグ
 };
 

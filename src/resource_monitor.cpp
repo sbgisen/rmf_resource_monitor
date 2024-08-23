@@ -16,14 +16,21 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
     return size * nmemb;
 }
 
-ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_registered_(false), first_fleet_message_received_(false)
+ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), first_fleet_message_received_(false)
 {
     // 初期リソース設定
     route_resources_ = {
         {"Resource01", "27F", 0.0, 0.0}
     };
 
-    passing_resource = "";
+    //通過中のリソース初期化
+    registered_resource = "";
+
+    //ロボットID登録
+    robot_id = "cuboid0001";
+
+    //ビルディングID登録
+    building_id = "Takeshiba";
 
     // /fleet_states トピックにサブスクライブ
     fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -93,14 +100,14 @@ void ResourceMonitor::check_and_access_resources()
         double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
         
         // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
-        if (distance <= 5.0 && passing_resource != resource.resource_id)
-        {
+        if (distance <= 5.0 && registered_resource != resource.resource_id)
+        {   
             bool success = false;
 
             while (!success)
             {
                 // サーバーにリクエストを送信し、レスポンスを取得
-                nlohmann::json response_json = access_resource_server(resource);
+                nlohmann::json response_json = access_resource_server(resource, "Registration");
 
                 // レスポンスが空でないか、またはエラーフィールドの処理
                 if (!response_json.is_null())
@@ -110,23 +117,59 @@ void ResourceMonitor::check_and_access_resources()
                     // レスポンスの結果に基づいて処理を分岐
                     if (result == 1)
                     {
-                        RCLCPP_INFO(this->get_logger(), "Resource %s registered successfully.", resource.resource_id.c_str());
+                        RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.", resource.resource_id.c_str());
                         success = true;
-                        passing_resource = resource.resource_id;
+                        registered_resource = resource.resource_id;
                     }
                     else if (result == 2)
                     {
-                        RCLCPP_WARN(this->get_logger(), "Resource %s is already registered by other robot.", resource.resource_id.c_str());             
+                        RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.", resource.resource_id.c_str());             
                     }
                     else
                     {
-                        RCLCPP_WARN(this->get_logger(), "Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
+                        RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
                         rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
                     }
                 }
                 else
                 {
-                    RCLCPP_ERROR(this->get_logger(), "Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
+                    RCLCPP_ERROR(this->get_logger(), "Registration: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
+                    rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
+                }
+            }
+        }
+        else if(distance >= 5.0 && registered_resource == resource.resource_id){
+            bool success = false;
+
+            while (!success)
+            {
+                // サーバーにリクエストを送信し、レスポンスを取得
+                nlohmann::json response_json = access_resource_server(resource, "Release");
+
+                if(!response_json.is_null())
+                {
+                    int result = response_json.value("result", -1);
+
+                    // レスポンスの結果に基づいて処理を分岐
+                    if (result == 1)
+                    {
+                        RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id.c_str());
+                        success = true;
+                        registered_resource = "";
+                    }
+                    else if (result == 2)
+                    {
+                        RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id.c_str());             
+                    }
+                    else
+                    {
+                        RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id.c_str(), result);
+                        rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
+                    }
+                }
+                else
+                {
+                    RCLCPP_ERROR(this->get_logger(), "Release: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
                     rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
                 }
             }
@@ -134,7 +177,7 @@ void ResourceMonitor::check_and_access_resources()
     }
 }
 
-nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
+nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource, const std::string api_name)
 {
     CURL *curl;
     CURLcode res;
@@ -142,11 +185,14 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
     nlohmann::json response_json;
 
     curl = curl_easy_init();
+
     if (curl)
     {
-        std::string url = "http://127.0.0.1:5000/api/registration";
-        std::string json_data = "{\"api\":\"Registration\",\"bldg_id\":\"Takeshiba\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\"Robot01\",\"request_id\":\"Request01\"}";
+        std::string url = "http://127.0.0.1:5000/api/" + api_name;
+        std::string json_data;
 
+        if(api_name == "Registration") json_data = "{\"api\":\"Registration\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
+        else if(api_name == "Release") json_data = "{\"api\":\"Release\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
         // URLの設定
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 
@@ -185,27 +231,21 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
 
                     if (result == 1)
                     {
-                        RCLCPP_INFO(this->get_logger(), "Resource registration successful");
-                        resource_registered_ = true;
-                    }
-                    else if (result == 2)
-                    {
-                        RCLCPP_WARN(this->get_logger(), "Resource already registered");
+                        RCLCPP_INFO(this->get_logger(), "%s: Successful", api_name.c_str());
                     }
                     else
                     {
-                        RCLCPP_WARN(this->get_logger(), "Registration failed with result code: %d", result);
-                        access_resource_server(resource); // 成功するまで再試行
+                        RCLCPP_WARN(this->get_logger(),  "%s: Failed with result code: %d", api_name.c_str(), result);
                     }
                 }
                 catch (nlohmann::json::parse_error &e)
                 {
-                    RCLCPP_ERROR(this->get_logger(), "Failed to parse response JSON: %s", e.what());
+                    RCLCPP_ERROR(this->get_logger(), "%s: Failed to parse response JSON: %s", api_name.c_str(), e.what());
                 }
             }
             else
             {
-                RCLCPP_WARN(this->get_logger(), "HTTP request failed with status code %ld", response_code);
+                RCLCPP_WARN(this->get_logger(), "%s: HTTP request failed with status code %ld", api_name.c_str(), response_code);
             }
         }
 
