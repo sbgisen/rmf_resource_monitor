@@ -16,16 +16,12 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
     return size * nmemb;
 }
 
-ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_registered_(false)
+ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_registered_(false), first_fleet_message_received_(false)
 {
-    //初期リソース設定
+    // 初期リソース設定
     route_resources_ = {
         {"Resource01", "27F", 0.0, 0.0}
     };
-
-    //ロボット位置指定
-    //current_position_.position.x=0;
-    //current_position_.position.y=0;
 
     // /fleet_states トピックにサブスクライブ
     fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -35,15 +31,14 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_register
     obstacle_publisher_ = this->create_publisher<rmf_obstacle_msgs::msg::Obstacles>(
         "/rmf_obstacles", 10);
 
-    // タイマーを設定して一定の周波数でcheck_and_access_resourcesを実行
+    // タイマーを設定して、初回のフリートメッセージを受信した後にcheck_and_access_resourcesを実行
     timer_ = this->create_wall_timer(
         std::chrono::duration<double>(1.0),  // 1秒ごとに実行
-        std::bind(&ResourceMonitor::check_and_access_resources, this)
+        std::bind(&ResourceMonitor::timer_callback, this)
     );
 }
 
-
-//ロボットの現在位置(x, y)を取得するcallback関数
+// ロボットの現在位置(x, y)を取得し、その後にリソースを確認するcallback関数
 void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::SharedPtr msg)
 {
     for (const auto &robot : msg->robots)
@@ -51,30 +46,47 @@ void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::Shar
         // ロボットの現在位置を取得
         current_position_.position.x = robot.location.x;
         current_position_.position.y = robot.location.y;
-        //ログの出力
+
+        // ログの出力
         RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f",
                     robot.name.c_str(), current_position_.position.x, current_position_.position.y);
     }
+
+    // 初めてフリートメッセージを受信した場合
+    if (!first_fleet_message_received_)
+    {
+        first_fleet_message_received_ = true;
+        RCLCPP_INFO(this->get_logger(), "First fleet message received. Starting periodic resource checks.");
+    }
 }
 
-//2つのpose間のデータを計算
+// タイマーコールバック関数
+void ResourceMonitor::timer_callback()
+{
+    // 初めてのフリートメッセージが受信された後に実行
+    if (first_fleet_message_received_)
+    {
+        check_and_access_resources();
+    }
+    else
+    {
+        RCLCPP_WARN(this->get_logger(), "Fleet messages have't been subscribed") ;
+    }
+}
+
+// 2つのpose間の距離を計算する関数
 double ResourceMonitor::calculate_distance(const geometry_msgs::msg::Pose &position1, const float coord_x, const float coord_y)
 {
     return std::sqrt(std::pow(position1.position.x - coord_x, 2) + 
                      std::pow(position1.position.y - coord_y, 2));
 }
 
-
+// リソースを確認しアクセスする関数
 void ResourceMonitor::check_and_access_resources()
 {
-    // リソースのリストをループ　→　最初のトピックが来るまで待機して、fleet_messageが来たらアクセスする関数を開始するように修正する
+    // リソースのリストをループ
     for (const auto &resource : route_resources_)
     {
-        if(current_position_.position.x == NULL && current_position_.position.y == NULL){
-            RCLCPP_ERROR(this->get_logger(), "Robot location NULL");
-            return;
-        }
-
         // 距離を計算
         double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
         
@@ -107,23 +119,18 @@ void ResourceMonitor::check_and_access_resources()
                     else
                     {
                         RCLCPP_WARN(this->get_logger(), "Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
-                        //publish_obstacle();
-                        // 一定の待機時間を設定して再試行
-                        rclcpp::sleep_for(std::chrono::seconds(2));
+                        rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
                     }
                 }
                 else
                 {
                     RCLCPP_ERROR(this->get_logger(), "Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
-                    // 一定の待機時間を設定して再試行
-                    rclcpp::sleep_for(std::chrono::seconds(2));
+                    rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
                 }
             }
         }
     }
 }
-
-
 
 nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
 {
@@ -186,7 +193,6 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
                     else
                     {
                         RCLCPP_WARN(this->get_logger(), "Registration failed with result code: %d", result);
-                        //publish_obstacle();
                         access_resource_server(resource); // 成功するまで再試行
                     }
                 }
@@ -210,80 +216,6 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
     // パースされたJSONレスポンスを返す
     return response_json;
 }
-
-
-
-
-/*
-void ResourceMonitor::schedule_callback(const std_msgs::msg::String::SharedPtr msg)
-{
-    // 経路情報の処理
-    route_resources_ = extract_resources_from_schedule(msg->data);
-    RCLCPP_INFO(this->get_logger(), "Received schedule markers: %s", msg->data.c_str());
-}*/
-
-/*
-std::vector<ResourceMonitor::Resource> ResourceMonitor::extract_resources_from_schedule(const std::string &schedule_data)
-{
-    // スケジュールデータからリソースを抽出するロジックを実装
-    // 仮のリソースリストを返す
-    return {{"Resource01", geometry_msgs::msg::Pose()}}; // 例として空のPoseを使用
-}
-*/
-
-/*
-void ResourceMonitor::publish_obstacle()
-{
-    // 障害物をパブリッシュ
-    auto obstacle_msg = rmf_obstacle_msgs::msg::Obstacles();
-    // 障害物の詳細を obstacle_msg に設定
-    obstacle_publisher_->publish(obstacle_msg);
-    RCLCPP_INFO(this->get_logger(), "Published obstacle");
-}
-*/
-
-/*
-void ResourceMonitor::release_resource(const Resource &resource)
-{
-    // リソース登録解除の処理を追加
-    CURL *curl;
-    CURLcode res;
-
-    curl = curl_easy_init();
-    if (curl)
-    {
-        std::string url = "http://127.0.0.1:5000/api/release";
-        std::string json_data = "{\"api\":\"Release\",\"bldg_id\":\"Building01\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\"Robot01\",\"request_id\":\"Request01\"}";
-
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
-
-        res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK)
-        {
-            RCLCPP_ERROR(this->get_logger(), "curl_easy_perform() failed: %s", curl_easy_strerror(res));
-        }
-        else
-        {
-            long response_code;
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-
-            if (response_code == 200)
-            {
-                RCLCPP_INFO(this->get_logger(), "Resource release successful");
-                resource_registered_ = false;
-            }
-            else
-            {
-                RCLCPP_WARN(this->get_logger(), "Resource release failed");
-            }
-        }
-
-        curl_easy_cleanup(curl);
-    }
-}
-*/
 
 int main(int argc, char **argv)
 {

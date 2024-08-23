@@ -41,6 +41,9 @@ private:
     // サーバーにリソース登録リクエストを送信する関数
     nlohmann::json access_resource_server(const Resource &resource);
 
+    //タイマーコールバック関数
+    void timer_callback();
+
     // 障害物をパブリッシュする関数
     //void publish_obstacle();
 
@@ -63,6 +66,7 @@ private:
     std::vector<Resource> route_resources_;  // 経路上のリソース
 
     bool resource_registered_;  // リソースが登録されているかどうかのフラグ
+    bool first_fleet_message_received_; //初めてフリートメッセージをサブスクライブしたかかどうかのフラグ
 };
 
 #endif // RESOURCE_MONITOR_HPP
