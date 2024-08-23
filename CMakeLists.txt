@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(resource_monitor)
+project(rmf_resource_monitor)
 
 # C++14を使用
 set(CMAKE_CXX_STANDARD 14)
@@ -12,6 +12,7 @@ find_package(std_msgs REQUIRED)
 find_package(rmf_fleet_msgs REQUIRED)
 find_package(rmf_obstacle_msgs REQUIRED)
 find_package(CURL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 # ヘッダーファイルのディレクトリをインクルードパスに追加
 include_directories(
@@ -25,6 +26,7 @@ add_executable(resource_monitor_node src/resource_monitor.cpp)
 # リンクするライブラリ
 target_link_libraries(resource_monitor_node
   ${CURL_LIBRARIES}
+  nlohmann_json::nlohmann_json
 )
 
 # 依存関係を追加

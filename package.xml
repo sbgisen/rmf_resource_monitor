@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<package format="2">
-  <name>resource_monitor</name>
+<package format="3">
+  <name>rmf_resource_monitor</name>
   <version>0.0.1</version>
   <description>The resource_monitor package</description>
-  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <maintainer email="SBGRP-git@g.softbank.co.jp">SoftBank Corp.</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

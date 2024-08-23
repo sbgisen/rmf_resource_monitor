@@ -9,6 +9,13 @@
 
 #include "resource_monitor.hpp"
 
+// グローバル関数の実装
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_registered_(false)
 {
     // /fleet_states トピックにサブスクライブ
@@ -65,7 +72,7 @@ void ResourceMonitor::check_and_access_resources()
             while (!success)
             {
                 // サーバーにリクエストを送信し、レスポンスを取得
-                json response_json = access_resource_server(resource);
+                nlohmann::json response_json = access_resource_server(resource);
 
                 // レスポンスが空でないか、またはエラーフィールドの処理
                 if (!response_json.is_null())
@@ -86,7 +93,7 @@ void ResourceMonitor::check_and_access_resources()
                     else
                     {
                         RCLCPP_WARN(this->get_logger(), "Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
-                        publish_obstacle();
+                        //publish_obstacle();
                         // 一定の待機時間を設定して再試行
                         rclcpp::sleep_for(std::chrono::seconds(2));
                     }
@@ -104,12 +111,12 @@ void ResourceMonitor::check_and_access_resources()
 
 
 
-json ResourceMonitor::access_resource_server(const Resource &resource)
+nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
 {
     CURL *curl;
     CURLcode res;
     std::string response_data;  // サーバーからのレスポンスデータを格納する変数
-    json response_json;
+    nlohmann::json response_json;
 
     curl = curl_easy_init();
     if (curl)
@@ -144,7 +151,7 @@ json ResourceMonitor::access_resource_server(const Resource &resource)
                 // JSONレスポンスを解析
                 try
                 {
-                    response_json = json::parse(response_data);
+                    response_json = nlohmann::json::parse(response_data);
                     int result = response_json["result"];
 
                     if (result == 1)
@@ -159,11 +166,11 @@ json ResourceMonitor::access_resource_server(const Resource &resource)
                     else
                     {
                         RCLCPP_WARN(this->get_logger(), "Registration failed with result code: %d", result);
-                        publish_obstacle();
+                        //publish_obstacle();
                         access_resource_server(resource); // 成功するまで再試行
                     }
                 }
-                catch (json::parse_error &e)
+                catch (nlohmann::json::parse_error &e)
                 {
                     RCLCPP_ERROR(this->get_logger(), "Failed to parse response JSON: %s", e.what());
                 }
@@ -182,11 +189,7 @@ json ResourceMonitor::access_resource_server(const Resource &resource)
     return response_json;
 }
 
-static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
-{
-    ((std::string*)userp)->append((char*)contents, size * nmemb);
-    return size * nmemb;
-}
+
 
 
 /*
