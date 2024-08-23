@@ -24,14 +24,16 @@ private:
     struct Resource
     {
         std::string resource_id;
-        geometry_msgs::msg::Pose position;
+        std::string floor_id;
+        float coord_x;
+        float coord_y;
     };
 
     // フリート状態トピックのコールバック関数
     void fleet_callback(const rmf_fleet_msgs::msg::FleetState::SharedPtr msg);
 
     // 2つのポーズ間の距離を計算する関数
-    double calculate_distance(const geometry_msgs::msg::Pose &position1, const geometry_msgs::msg::Pose &position2);
+    double calculate_distance(const geometry_msgs::msg::Pose &position1, const float coord_x, const float coord_y);
 
     // 一定間隔でリソースを確認してアクセスする関数
     void check_and_access_resources();

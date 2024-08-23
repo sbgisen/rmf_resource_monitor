@@ -18,6 +18,15 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_registered_(false)
 {
+    //初期リソース設定
+    route_resources_ = {
+        {"Resource01", "27F", 0.0, 0.0}
+    };
+
+    //ロボット位置指定
+    //current_position_.position.x=0;
+    //current_position_.position.y=0;
+
     // /fleet_states トピックにサブスクライブ
     fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
         "/fleet_states", 10, std::bind(&ResourceMonitor::fleet_callback, this, std::placeholders::_1));
@@ -49,20 +58,25 @@ void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::Shar
 }
 
 //2つのpose間のデータを計算
-double ResourceMonitor::calculate_distance(const geometry_msgs::msg::Pose &position1, const geometry_msgs::msg::Pose &position2)
+double ResourceMonitor::calculate_distance(const geometry_msgs::msg::Pose &position1, const float coord_x, const float coord_y)
 {
-    return std::sqrt(std::pow(position1.position.x - position2.position.x, 2) + 
-                     std::pow(position1.position.y - position2.position.y, 2));
+    return std::sqrt(std::pow(position1.position.x - coord_x, 2) + 
+                     std::pow(position1.position.y - coord_y, 2));
 }
 
 
 void ResourceMonitor::check_and_access_resources()
 {
-    // リソースのリストをループ
+    // リソースのリストをループ　→　最初のトピックが来るまで待機して、fleet_messageが来たらアクセスする関数を開始するように修正する
     for (const auto &resource : route_resources_)
     {
+        if(current_position_.position.x == NULL && current_position_.position.y == NULL){
+            RCLCPP_ERROR(this->get_logger(), "Robot location NULL");
+            return;
+        }
+
         // 距離を計算
-        double distance = calculate_distance(current_position_, resource.position);
+        double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
         
         // 距離が5m以内の場合、サーバーにリクエストを送信
         if (distance <= 5.0)
@@ -122,12 +136,18 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
     if (curl)
     {
         std::string url = "http://127.0.0.1:5000/api/registration";
-        std::string json_data = "{\"api\":\"Registration\",\"bldg_id\":\"Building01\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\"Robot01\",\"request_id\":\"Request01\"}";
+        std::string json_data = "{\"api\":\"Registration\",\"bldg_id\":\"Takeshiba\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\"Robot01\",\"request_id\":\"Request01\"}";
 
         // URLの設定
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
         // POSTデータの設定
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
+
+        // Content-Type ヘッダーの設定
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
         // レスポンスデータを受け取るためのコールバック関数を設定
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -181,6 +201,8 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource)
             }
         }
 
+        // ヘッダーの解放
+        curl_slist_free_all(headers);
         // リソースの解放
         curl_easy_cleanup(curl);
     }
