@@ -23,6 +23,8 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), resource_register
         {"Resource01", "27F", 0.0, 0.0}
     };
 
+    passing_resource = "";
+
     // /fleet_states トピックにサブスクライブ
     fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
         "/fleet_states", 10, std::bind(&ResourceMonitor::fleet_callback, this, std::placeholders::_1));
@@ -90,8 +92,8 @@ void ResourceMonitor::check_and_access_resources()
         // 距離を計算
         double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
         
-        // 距離が5m以内の場合、サーバーにリクエストを送信
-        if (distance <= 5.0)
+        // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
+        if (distance <= 5.0 && passing_resource != resource.resource_id)
         {
             bool success = false;
 
@@ -110,11 +112,11 @@ void ResourceMonitor::check_and_access_resources()
                     {
                         RCLCPP_INFO(this->get_logger(), "Resource %s registered successfully.", resource.resource_id.c_str());
                         success = true;
+                        passing_resource = resource.resource_id;
                     }
                     else if (result == 2)
                     {
-                        RCLCPP_WARN(this->get_logger(), "Resource %s is already registered.", resource.resource_id.c_str());
-                        success = true; // 登録済みと判断して終了
+                        RCLCPP_WARN(this->get_logger(), "Resource %s is already registered by other robot.", resource.resource_id.c_str());             
                     }
                     else
                     {

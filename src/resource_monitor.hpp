@@ -41,6 +41,9 @@ private:
     // サーバーにリソース登録リクエストを送信する関数
     nlohmann::json access_resource_server(const Resource &resource);
 
+    // リソース登録解除を行う関数
+    // void release_resource(const Resource &resource);
+
     //タイマーコールバック関数
     void timer_callback();
 
@@ -53,9 +56,6 @@ private:
     // スケジュールデータからリソースを抽出する関数
     //std::vector<Resource> extract_resources_from_schedule(const std::string &schedule_data);
 
-    // リソース登録解除を行う関数
-   // void release_resource(const Resource &resource);
-
 
     // メンバ変数
     rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_subscription_;  // フリート状態サブスクライバ
@@ -64,6 +64,7 @@ private:
 
     geometry_msgs::msg::Pose current_position_;  // 現在位置
     std::vector<Resource> route_resources_;  // 経路上のリソース
+    std::string passing_resource; //ロボットが専有しているリソース
 
     bool resource_registered_;  // リソースが登録されているかどうかのフラグ
     bool first_fleet_message_received_; //初めてフリートメッセージをサブスクライブしたかかどうかのフラグ
