@@ -25,10 +25,10 @@ ResourceMonitor::ResourceMonitor()
   building_id("Takeshiba"),            // const 変数の初期化
   first_fleet_message_received_(false)
 {
-    // 初期リソース設定
-    route_resources_ = {
-        {"Resource01", "27F", 62.86893081665039, -92.57209777832031}
-    };
+    // パッケージ共有ディレクトリから YAML ファイルのパスを取得
+    std::string package_share_directory = ament_index_cpp::get_package_share_directory("rmf_resource_monitor");
+    std::string yaml_file = package_share_directory + "/config/resource_list.yaml";
+    load_resources_from_yaml(yaml_file);
 
     //通過中のリソース初期化
     registered_resource = "";
@@ -189,7 +189,7 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource,
     CURL *curl;
     CURLcode res;
     std::string response_data;  // サーバーからのレスポンスデータを格納する変数
-    nlohmann::json response_json;
+    nlohmann::json response_json;   
 
     curl = curl_easy_init();
 
@@ -291,7 +291,26 @@ void ResourceMonitor::publish_obstacle(const float x, const float y)
 
     RCLCPP_INFO(this->get_logger(), "Publishing obstacle");
     obstacle_publisher_->publish(message);
-  }
+}
+
+void ResourceMonitor::load_resources_from_yaml(const std::string & yaml_file)
+{
+    try {
+        YAML::Node config = YAML::LoadFile(yaml_file);
+        if (config["route_resources"]) {
+            for (const auto& resource : config["route_resources"]) {
+                Resource res;
+                res.resource_id = resource["resource_id"].as<std::string>();
+                res.floor_id = resource["floor_id"].as<std::string>();
+                res.coord_x = resource["coord_x"].as<float>();
+                res.coord_y = resource["coord_y"].as<float>();
+                route_resources_.emplace_back(res);
+            }
+        }
+    } catch (const YAML::Exception &e) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to load YAML file: %s", e.what());
+    }
+}
 
 int main(int argc, char **argv)
 {

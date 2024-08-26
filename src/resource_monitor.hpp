@@ -8,6 +8,8 @@
 #include <std_msgs/msg/string.hpp>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
+#include <yaml-cpp/yaml.h>
+#include "ament_index_cpp/get_package_share_directory.hpp"
 #include <cmath>
 #include <vector>
 #include <string>
@@ -60,6 +62,9 @@ private:
     // 障害物をパブリッシュする関数
     void publish_obstacle(const float x, const float y);
 
+    //YAMLファイルを読み込む関数
+    void load_resources_from_yaml(const std::string & yaml_file);
+
     // スケジュールトピックのコールバック関数
     //void schedule_callback(const std_msgs::msg::String::SharedPtr msg);
 
@@ -75,6 +80,9 @@ private:
     geometry_msgs::msg::Pose current_position_;  // 現在位置
     std::vector<Resource> route_resources_;  // 経路上のリソース
     std::string registered_resource; //ロボットが専有しているリソース
+
+    std::string package_share_directory = ament_index_cpp::get_package_share_directory("rmf_resource_monitor");
+
 
     bool first_fleet_message_received_; //初めてフリートメッセージをサブスクライブしたかかどうかのフラグ
 };
