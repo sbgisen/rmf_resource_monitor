@@ -1,3 +1,4 @@
+
 /*実装したい機能
 /schedule_markersトピックにsubscribeして経路情報を取得して、移動経路内に存在するリソースを確認
 /fleet_statesトピックにsubscribeして現在位置情報えお取得し続けて距離が5m以内に到達した場合にリソース管理サーバーへのアクセス
@@ -16,6 +17,7 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
     return size * nmemb;
 }
 
+//コンストラクタ
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), first_fleet_message_received_(false)
 {
     // 初期リソース設定
@@ -47,7 +49,8 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), first_fleet_messa
     );
 }
 
-// ロボットの現在位置(x, y)を取得し、その後にリソースを確認するcallback関数
+
+//Fleet Callback： ロボットの現在位置(x, y)を取得するcallback関数
 void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::SharedPtr msg)
 {
     for (const auto &robot : msg->robots)
@@ -68,6 +71,97 @@ void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::Shar
         RCLCPP_INFO(this->get_logger(), "First fleet message received. Starting periodic resource checks.");
     }
 }
+
+//Periodically Run： リソースを確認しアクセスする関数
+void ResourceMonitor::check_and_access_resources()
+{
+    // リソースのリストをループ
+    for (const auto &resource : route_resources_)
+    {
+        // 距離を計算
+        double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
+        
+        // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
+        if (distance <= 5.0 && registered_resource != resource.resource_id)
+        {   
+            bool success = false;
+
+            while (rclcpp::ok() && !success)
+            {
+                // サーバーにリクエストを送信し、レスポンスを取得
+                nlohmann::json response_json = access_resource_server(resource, "registration");
+
+                // レスポンスが空でないか、またはエラーフィールドの処理
+                if (!response_json.is_null())
+                {
+                    int result = response_json.value("result", -1);
+
+                    // レスポンスの結果に基づいて処理を分岐
+                    if (result == 1)
+                    {
+                        RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.", resource.resource_id.c_str());
+                        success = true;
+                        registered_resource = resource.resource_id;
+                    }
+                    else if (result == 2)
+                    {
+                        RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.", resource.resource_id.c_str());
+                        publish_obstacle(resource.coord_x, resource.coord_y);
+                        rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ            
+                    }
+                    else
+                    {
+                        RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
+                        rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+                    }
+                }
+                else
+                {
+                    RCLCPP_ERROR(this->get_logger(), "Registration: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
+                    rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+                }
+            }
+        }
+        else if(distance >= 5.0 && registered_resource == resource.resource_id){
+            bool success = false;
+
+            while (!success)
+            {
+                // サーバーにリクエストを送信し、レスポンスを取得
+                nlohmann::json response_json = access_resource_server(resource, "release");
+
+                if(!response_json.is_null())
+                {
+                    int result = response_json.value("result", -1);
+
+                    // レスポンスの結果に基づいて処理を分岐
+                    if (result == 1)
+                    {
+                        RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id.c_str());
+                        success = true;
+                        registered_resource = "";
+                    }
+                    else if (result == 2)
+                    {
+                        RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id.c_str());
+                        rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ         
+                    }
+                    else
+                    {
+                        RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id.c_str(), result);
+                        rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+                    }
+                }
+                else
+                {
+                    RCLCPP_ERROR(this->get_logger(), "Release: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
+                    rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+                }
+            }
+        }
+    }
+}
+
 
 // タイマーコールバック関数
 void ResourceMonitor::timer_callback()
@@ -90,94 +184,8 @@ double ResourceMonitor::calculate_distance(const geometry_msgs::msg::Pose &posit
                      std::pow(position1.position.y - coord_y, 2));
 }
 
-// リソースを確認しアクセスする関数
-void ResourceMonitor::check_and_access_resources()
-{
-    // リソースのリストをループ
-    for (const auto &resource : route_resources_)
-    {
-        // 距離を計算
-        double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
-        
-        // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
-        if (distance <= 5.0 && registered_resource != resource.resource_id)
-        {   
-            bool success = false;
-
-            while (!success)
-            {
-                // サーバーにリクエストを送信し、レスポンスを取得
-                nlohmann::json response_json = access_resource_server(resource, "Registration");
-
-                // レスポンスが空でないか、またはエラーフィールドの処理
-                if (!response_json.is_null())
-                {
-                    int result = response_json.value("result", -1);
-
-                    // レスポンスの結果に基づいて処理を分岐
-                    if (result == 1)
-                    {
-                        RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.", resource.resource_id.c_str());
-                        success = true;
-                        registered_resource = resource.resource_id;
-                    }
-                    else if (result == 2)
-                    {
-                        RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.", resource.resource_id.c_str());             
-                    }
-                    else
-                    {
-                        RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d", resource.resource_id.c_str(), result);
-                        rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
-                    }
-                }
-                else
-                {
-                    RCLCPP_ERROR(this->get_logger(), "Registration: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
-                    rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
-                }
-            }
-        }
-        else if(distance >= 5.0 && registered_resource == resource.resource_id){
-            bool success = false;
-
-            while (!success)
-            {
-                // サーバーにリクエストを送信し、レスポンスを取得
-                nlohmann::json response_json = access_resource_server(resource, "Release");
-
-                if(!response_json.is_null())
-                {
-                    int result = response_json.value("result", -1);
-
-                    // レスポンスの結果に基づいて処理を分岐
-                    if (result == 1)
-                    {
-                        RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id.c_str());
-                        success = true;
-                        registered_resource = "";
-                    }
-                    else if (result == 2)
-                    {
-                        RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id.c_str());             
-                    }
-                    else
-                    {
-                        RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id.c_str(), result);
-                        rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
-                    }
-                }
-                else
-                {
-                    RCLCPP_ERROR(this->get_logger(), "Release: Received an invalid or empty response from the server for resource %s.", resource.resource_id.c_str());
-                    rclcpp::sleep_for(std::chrono::seconds(2));  // 一定の待機時間を設定して再試行
-                }
-            }
-        }
-    }
-}
-
-nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource, const std::string api_name)
+// サーバーアクセス関数
+nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource, const std::string api_endpoint)
 {
     CURL *curl;
     CURLcode res;
@@ -188,11 +196,11 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource,
 
     if (curl)
     {
-        std::string url = "http://127.0.0.1:5000/api/" + api_name;
+        std::string url = "http://127.0.0.1:5000/api/" + api_endpoint;
         std::string json_data;
 
-        if(api_name == "Registration") json_data = "{\"api\":\"Registration\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
-        else if(api_name == "Release") json_data = "{\"api\":\"Release\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
+        if(api_endpoint == "registration") json_data = "{\"api\":\"Registration\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
+        else if(api_endpoint == "release") json_data = "{\"api\":\"Release\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
         // URLの設定
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 
@@ -231,21 +239,21 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource,
 
                     if (result == 1)
                     {
-                        RCLCPP_INFO(this->get_logger(), "%s: Successful", api_name.c_str());
+                        RCLCPP_INFO(this->get_logger(), "%s: Successful", api_endpoint.c_str());
                     }
                     else
                     {
-                        RCLCPP_WARN(this->get_logger(),  "%s: Failed with result code: %d", api_name.c_str(), result);
+                        RCLCPP_WARN(this->get_logger(),  "%s: Failed with result code: %d", api_endpoint.c_str(), result);
                     }
                 }
                 catch (nlohmann::json::parse_error &e)
                 {
-                    RCLCPP_ERROR(this->get_logger(), "%s: Failed to parse response JSON: %s", api_name.c_str(), e.what());
+                    RCLCPP_ERROR(this->get_logger(), "%s: Failed to parse response JSON: %s", api_endpoint.c_str(), e.what());
                 }
             }
             else
             {
-                RCLCPP_WARN(this->get_logger(), "%s: HTTP request failed with status code %ld", api_name.c_str(), response_code);
+                RCLCPP_WARN(this->get_logger(), "%s: HTTP request failed with status code %ld", api_endpoint.c_str(), response_code);
             }
         }
 
@@ -258,6 +266,32 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource,
     // パースされたJSONレスポンスを返す
     return response_json;
 }
+
+void ResourceMonitor::publish_obstacle(const float x, const float y)
+{
+    auto message = rmf_obstacle_msgs::msg::Obstacles();
+    
+    // 障害物データを作成
+    rmf_obstacle_msgs::msg::Obstacle obstacle;
+    obstacle.header.frame_id = "map";  // フレームIDの設定
+    obstacle.header.stamp = this->get_clock()->now();
+    obstacle.id = 1;
+    obstacle.classification = "example_obstacle";
+    obstacle.bbox.center.position.x = x;
+    obstacle.bbox.center.position.y = y;
+    obstacle.bbox.center.position.z = 0.0;
+    obstacle.bbox.size.x = 0.5;
+    obstacle.bbox.size.y = 0.5;
+    obstacle.bbox.size.z = 0.5;
+    obstacle.level_name = "L1";  // 必要なレベル名
+    obstacle.lifetime = rclcpp::Duration(1, 0);  // 1秒間の寿命
+
+    // メッセージに障害物を追加
+    message.obstacles.push_back(obstacle);
+
+    RCLCPP_INFO(this->get_logger(), "Publishing obstacle");
+    obstacle_publisher_->publish(message);
+  }
 
 int main(int argc, char **argv)
 {

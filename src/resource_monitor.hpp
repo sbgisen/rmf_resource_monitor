@@ -55,7 +55,7 @@ private:
     void timer_callback();
 
     // 障害物をパブリッシュする関数
-    //void publish_obstacle();
+    void publish_obstacle(const float x, const float y);
 
     // スケジュールトピックのコールバック関数
     //void schedule_callback(const std_msgs::msg::String::SharedPtr msg);
