@@ -20,14 +20,14 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 //コンストラクタ
 ResourceMonitor::ResourceMonitor()
 : Node("resource_monitor"),
-  resource_registration_distance(5.0), // const 変数の初期化
+  resource_registration_distance(30.0), // const 変数の初期化
   robot_id("cuboid0001"),              // const 変数の初期化
   building_id("Takeshiba"),            // const 変数の初期化
   first_fleet_message_received_(false)
 {
     // 初期リソース設定
     route_resources_ = {
-        {"Resource01", "27F", 10.0, 20.0}
+        {"Resource01", "27F", 62.86893081665039, -92.57209777832031}
     };
 
     //通過中のリソース初期化
