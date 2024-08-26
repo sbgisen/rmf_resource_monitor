@@ -18,21 +18,20 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 }
 
 //コンストラクタ
-ResourceMonitor::ResourceMonitor() : Node("resource_monitor"), first_fleet_message_received_(false)
+ResourceMonitor::ResourceMonitor()
+: Node("resource_monitor"),
+  resource_registration_distance(5.0), // const 変数の初期化
+  robot_id("cuboid0001"),              // const 変数の初期化
+  building_id("Takeshiba"),            // const 変数の初期化
+  first_fleet_message_received_(false)
 {
     // 初期リソース設定
     route_resources_ = {
-        {"Resource01", "27F", 0.0, 0.0}
+        {"Resource01", "27F", 10.0, 20.0}
     };
 
     //通過中のリソース初期化
     registered_resource = "";
-
-    //ロボットID登録
-    robot_id = "cuboid0001";
-
-    //ビルディングID登録
-    building_id = "Takeshiba";
 
     // /fleet_states トピックにサブスクライブ
     fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -82,7 +81,7 @@ void ResourceMonitor::check_and_access_resources()
         double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
         
         // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
-        if (distance <= 5.0 && registered_resource != resource.resource_id)
+        if (distance <= resource_registration_distance && registered_resource != resource.resource_id)
         {   
             bool success = false;
 
@@ -122,7 +121,7 @@ void ResourceMonitor::check_and_access_resources()
                 }
             }
         }
-        else if(distance >= 5.0 && registered_resource == resource.resource_id){
+        else if(distance >= resource_registration_distance && registered_resource == resource.resource_id){
             bool success = false;
 
             while (!success)
@@ -277,13 +276,14 @@ void ResourceMonitor::publish_obstacle(const float x, const float y)
     obstacle.header.stamp = this->get_clock()->now();
     obstacle.id = 1;
     obstacle.classification = "example_obstacle";
+    obstacle.source = "ResourceMonitor";
     obstacle.bbox.center.position.x = x;
     obstacle.bbox.center.position.y = y;
     obstacle.bbox.center.position.z = 0.0;
-    obstacle.bbox.size.x = 0.5;
-    obstacle.bbox.size.y = 0.5;
-    obstacle.bbox.size.z = 0.5;
-    obstacle.level_name = "L1";  // 必要なレベル名
+    obstacle.bbox.size.x = 2.0;
+    obstacle.bbox.size.y = 2.0;
+    obstacle.bbox.size.z = 2.0;
+    obstacle.level_name = "27F";  // 必要なレベル名
     obstacle.lifetime = rclcpp::Duration(1, 0);  // 1秒間の寿命
 
     // メッセージに障害物を追加

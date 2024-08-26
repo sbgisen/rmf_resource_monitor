@@ -22,10 +22,13 @@ public:
 private:
 
     //ロボットの識別ID
-    std::string robot_id;
+    const std::string robot_id;
 
     //ビルディングID
-    std::string building_id;
+    const std::string building_id;
+
+    //登録申請するリソースからの距離
+    const float resource_registration_distance;
 
     // リソースを表す構造体
     struct Resource
@@ -66,7 +69,7 @@ private:
 
     // メンバ変数
     rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_subscription_;  // フリート状態サブスクライバ
-    rclcpp::Publisher<rmf_obstacle_msgs::msg::Obstacles>::SharedPtr obstacle_publisher_;   // 障害物パブリッシャ
+    rclcpp::Publisher<rmf_obstacle_msgs::msg::Obstacles>::SharedPtr obstacle_publisher_; // 障害物パブリッシャ
     rclcpp::TimerBase::SharedPtr timer_;  // 定期実行タイマー
 
     geometry_msgs::msg::Pose current_position_;  // 現在位置
