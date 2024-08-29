@@ -3,3 +3,4 @@ route_resources:
     floor_id: "27F"
     coord_x: 42.7
     coord_y: -98.5
+    regist_state: false

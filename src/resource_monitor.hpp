@@ -42,6 +42,7 @@ private:
         std::string floor_id;
         float coord_x;
         float coord_y;
+        bool regist_state;
     };
 
     // フリート状態トピックのコールバック関数

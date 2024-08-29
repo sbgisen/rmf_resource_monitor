@@ -23,7 +23,7 @@ ResourceMonitor::ResourceMonitor()
   resource_registration_distance(3.4), // const 変数の初期化
   resource_release_distance(4.0), 
   robot_id("cuboid0001"),              // const 変数の初期化
-  building_id("Takeshiba"),            // const 変数の初期化
+  building_id("Takeshiba"),       // const 変数の初期化
   first_fleet_message_received_(false)
 {
     // パッケージ共有ディレクトリから YAML ファイルのパスを取得
@@ -76,7 +76,7 @@ void ResourceMonitor::fleet_callback(const rmf_fleet_msgs::msg::FleetState::Shar
 void ResourceMonitor::check_and_access_resources()
 {
     // リソースのリストをループ
-    for (const auto &resource : route_resources_)
+    for (auto &resource : route_resources_)
     {
         // 距離を計算
         double distance = calculate_distance(current_position_, resource.coord_x, resource.coord_y);
@@ -84,9 +84,7 @@ void ResourceMonitor::check_and_access_resources()
         // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
         if (distance <= resource_registration_distance && registered_resource != resource.resource_id)
         {   
-            bool success = false;
-
-            while (rclcpp::ok() && !success)
+            if (rclcpp::ok() && !resource.regist_state)
             {
                 // サーバーにリクエストを送信し、レスポンスを取得
                 nlohmann::json response_json = access_resource_server(resource, "registration");
@@ -100,7 +98,7 @@ void ResourceMonitor::check_and_access_resources()
                     if (result == 1)
                     {
                         RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.", resource.resource_id.c_str());
-                        success = true;
+                        resource.regist_state = true;
                         registered_resource = resource.resource_id;
                     }
                     else if (result == 2)
@@ -123,9 +121,9 @@ void ResourceMonitor::check_and_access_resources()
             }
         }
         else if(distance >= resource_release_distance && registered_resource == resource.resource_id){
-            bool success = false;
 
-            while (!success)
+
+            if (resource.regist_state)
             {
                 // サーバーにリクエストを送信し、レスポンスを取得
                 nlohmann::json response_json = access_resource_server(resource, "release");
@@ -138,8 +136,9 @@ void ResourceMonitor::check_and_access_resources()
                     if (result == 1)
                     {
                         RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id.c_str());
-                        success = true;
+                        resource.regist_state = false;
                         registered_resource = "";
+
                     }
                     else if (result == 2)
                     {
