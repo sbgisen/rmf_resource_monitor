@@ -20,7 +20,7 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 //コンストラクタ
 ResourceMonitor::ResourceMonitor()
 : Node("resource_monitor"),
-  resource_registration_distance(5.0), // const 変数の初期化
+  resource_registration_distance(3.4), // const 変数の初期化
   resource_release_distance(4.0), 
   robot_id("cuboid0001"),              // const 変数の初期化
   building_id("Takeshiba"),            // const 変数の初期化
