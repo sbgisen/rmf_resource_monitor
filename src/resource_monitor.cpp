@@ -20,7 +20,8 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 //コンストラクタ
 ResourceMonitor::ResourceMonitor()
 : Node("resource_monitor"),
-  resource_registration_distance(30.0), // const 変数の初期化
+  resource_registration_distance(5.0), // const 変数の初期化
+  resource_release_distance(4.0), 
   robot_id("cuboid0001"),              // const 変数の初期化
   building_id("Takeshiba"),            // const 変数の初期化
   first_fleet_message_received_(false)
@@ -121,7 +122,7 @@ void ResourceMonitor::check_and_access_resources()
                 }
             }
         }
-        else if(distance >= resource_registration_distance && registered_resource == resource.resource_id){
+        else if(distance >= resource_release_distance && registered_resource == resource.resource_id){
             bool success = false;
 
             while (!success)
@@ -181,6 +182,7 @@ double ResourceMonitor::calculate_distance(const geometry_msgs::msg::Pose &posit
 {
     return std::sqrt(std::pow(position1.position.x - coord_x, 2) + 
                      std::pow(position1.position.y - coord_y, 2));
+
 }
 
 // サーバーアクセス関数
@@ -195,7 +197,7 @@ nlohmann::json ResourceMonitor::access_resource_server(const Resource &resource,
 
     if (curl)
     {
-        std::string url = "http://127.0.0.1:5000/api/" + api_endpoint;
+        std::string url = "http://127.0.0.1:5000/api/" + api_endpoint; 
         std::string json_data;
 
         if(api_endpoint == "registration") json_data = "{\"api\":\"Registration\",\"bldg_id\":\"" + building_id + "\",\"resource_id\":\"" + resource.resource_id + "\",\"robot_id\":\""+ robot_id +"\",\"request_id\":\"Request01\"}";
@@ -270,6 +272,7 @@ void ResourceMonitor::publish_obstacle(const float x, const float y)
 {
     auto message = rmf_obstacle_msgs::msg::Obstacles();
     
+    message.header.frame_id = "map";
     // 障害物データを作成
     rmf_obstacle_msgs::msg::Obstacle obstacle;
     obstacle.header.frame_id = "map";  // フレームIDの設定
@@ -283,7 +286,7 @@ void ResourceMonitor::publish_obstacle(const float x, const float y)
     obstacle.bbox.size.x = 2.0;
     obstacle.bbox.size.y = 2.0;
     obstacle.bbox.size.z = 2.0;
-    obstacle.level_name = "27F";  // 必要なレベル名
+    obstacle.level_name = "27F"; // 必要なレベル名
     obstacle.lifetime = rclcpp::Duration(1, 0);  // 1秒間の寿命
 
     // メッセージに障害物を追加

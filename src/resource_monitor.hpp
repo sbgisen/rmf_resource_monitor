@@ -32,6 +32,9 @@ private:
     //登録申請するリソースからの距離
     const float resource_registration_distance;
 
+    //登録解除申請するリソースからの距離
+    const float resource_release_distance;
+
     // リソースを表す構造体
     struct Resource
     {
