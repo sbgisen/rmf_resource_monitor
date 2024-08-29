@@ -1,5 +1,5 @@
 route_resources:
   - resource_id: "Resource01"
     floor_id: "27F"
-    coord_x: 62.86893081665039
-    coord_y: -92.57209777832031
+    coord_x: 42.7
+    coord_y: -98.5
