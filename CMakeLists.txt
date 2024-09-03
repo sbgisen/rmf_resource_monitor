@@ -1,10 +1,20 @@
 cmake_minimum_required(VERSION 3.5)
 project(rmf_resource_monitor)
 
-# C++14を使用
+if(CMAKE_COMPILER_IS_GNUCXX
+   OR CMAKE_CXX_COMPILER_ID
+      MATCHES
+      "Clang"
+)
+  add_compile_options(
+    -Wall
+    -Wextra
+    -Wpedantic
+  )
+endif()
+
 set(CMAKE_CXX_STANDARD 14)
 
-# find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -16,24 +26,19 @@ find_package(nlohmann_json REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 
-# ヘッダーファイルのディレクトリをインクルードパスに追加
-include_directories(
-  include
-  ${CURL_INCLUDE_DIRS}
-)
-
-# 実行ファイルを追加
 add_executable(resource_monitor_node src/resource_monitor.cpp)
 
-# リンクするライブラリ
-target_link_libraries(resource_monitor_node
+target_include_directories(resource_monitor_node PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+target_link_libraries(
+  resource_monitor_node
   ${CURL_LIBRARIES}
   nlohmann_json::nlohmann_json
   yaml-cpp
 )
 
-# 依存関係を追加
-ament_target_dependencies(resource_monitor_node
+ament_target_dependencies(
+  resource_monitor_node
   rclcpp
   geometry_msgs
   std_msgs
@@ -43,15 +48,19 @@ ament_target_dependencies(resource_monitor_node
   ament_index_cpp
 )
 
-# 実行可能ファイルのインストール
-install(TARGETS resource_monitor_node
+install(
+  TARGETS resource_monitor_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ディレクトリのインストール
-install(DIRECTORY config/
+install(
+  DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config
 )
 
+install(
+  DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 ament_package()
