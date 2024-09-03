@@ -38,17 +38,12 @@ public:
   ResourceMonitor();
 
 private:
-  //ロボットの識別ID
-  const std::string robot_id_;
-
-  //ビルディングID
-  const std::string building_id_;
-
-  //登録申請するリソースからの距離
-  const float resource_registration_distance_;
-
-  //登録解除申請するリソースからの距離
-  const float resource_release_distance_;
+  std::string robot_id_;
+  std::string building_id_;
+  std::string server_url_;
+  std::string resource_config_file_;
+  float resource_registration_distance_;  // Register to resources within this distance.
+  float resource_release_distance_;       // Release registered resources at a distance away from this value.
 
   // リソースを表す構造体
   struct Resource
@@ -64,10 +59,8 @@ private:
   void fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg);
   // 2つのポーズ間の距離を計算する関数
   double calculateDistance(const geometry_msgs::msg::Pose& position1, const float coord_x, const float coord_y);
-
   // 一定間隔でリソースを確認してアクセスする関数
   void checkAndAccessResources();
-
   // サーバーにリソース登録リクエストを送信する関数
   nlohmann::json accessResourceServer(const Resource& resource, const std::string& api_endpoint);
 

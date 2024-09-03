@@ -24,18 +24,24 @@ static size_t writeCallback(void* contents, size_t size, size_t nmemb, void* use
 }
 
 //コンストラクタ
-ResourceMonitor::ResourceMonitor()
-  : Node("resource_monitor")
-  , robot_id_("cuboid0001")
-  , building_id_("Takeshiba")
-  , resource_registration_distance_(3.4)
-  , resource_release_distance_(4.0)
-  , first_fleet_message_received_(false)
+ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 {
-  // パッケージ共有ディレクトリから YAML ファイルのパスを取得
-  std::string package_share_directory = ament_index_cpp::get_package_share_directory("rmf_resource_monitor");
-  std::string yaml_file = package_share_directory + "/config/resource_list.yaml";
-  loadResourcesFromYaml(yaml_file);
+  this->declare_parameter<std::string>("robot_id", "robot");
+  this->declare_parameter<std::string>("building_id", "");
+  this->declare_parameter<std::string>("server_url", "http://127.0.0.1:5000");
+  this->declare_parameter<std::string>("resource_config_file", "");
+  this->declare_parameter<double>("resource_registration_distance", 3.4);
+  this->declare_parameter<double>("resource_release_distance", 4.0);
+
+  // Get parameters from parameter server
+  robot_id_ = this->get_parameter("robot_id").as_string();
+  building_id_ = this->get_parameter("building_id").as_string();
+  server_url_ = this->get_parameter("server_url").as_string();
+  resource_config_file_ = this->get_parameter("resource_config_file").as_string();
+  resource_registration_distance_ = this->get_parameter("resource_registration_distance").as_double();
+  resource_release_distance_ = this->get_parameter("resource_release_distance").as_double();
+  RCLCPP_INFO(this->get_logger(), "Loading resource info from file: %s", resource_config_file_.c_str());
+  loadResourcesFromYaml(resource_config_file_);
 
   //通過中のリソース初期化
   registered_resource_ = "";
@@ -202,7 +208,7 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
 
   if (curl)
   {
-    std::string url = "http://127.0.0.1:5000/api/" + api_endpoint;
+    std::string url = server_url_ + "/api/" + api_endpoint;
     std::string json_data;
 
     if (api_endpoint == "registration")
