@@ -63,6 +63,10 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
 {
   for (const auto& robot : msg->robots)
   {
+    if (robot.name != robot_id_)
+    {
+      continue;
+    }
     // ロボットの現在位置を取得
     current_position_.position.x = robot.location.x;
     current_position_.position.y = robot.location.y;
@@ -70,13 +74,14 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
     // ログの出力
     RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f", robot.name.c_str(),
                 current_position_.position.x, current_position_.position.y);
-  }
-
-  // 初めてフリートメッセージを受信した場合
-  if (!first_fleet_message_received_)
-  {
-    first_fleet_message_received_ = true;
-    RCLCPP_INFO(this->get_logger(), "First fleet message received. Starting periodic resource checks.");
+    // 初めてフリートメッセージを受信した場合
+    if (!first_fleet_message_received_)
+    {
+      first_fleet_message_received_ = true;
+      RCLCPP_INFO(this->get_logger(), "First fleet message received for %s. Starting periodic resource checks.",
+                  robot_id_.c_str());
+    }
+    break;
   }
 }
 
