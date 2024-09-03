@@ -1,0 +1,7 @@
+---
+route_resources:
+  - resource_id: "R01"
+    floor_id: "1F"
+    coord_x: 0.0
+    coord_y: 0.0
+    registration_state: false
