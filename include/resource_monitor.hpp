@@ -83,7 +83,6 @@ private:
   bool first_fleet_message_received_;          // Flag to show that the first fleet message has been received
   geometry_msgs::msg::Pose current_position_;  // The target robot's current position
   std::vector<Resource> route_resources_;      // List of resources managed by the server, read from yaml config file
-  std::string registered_resource_;  // The resource that the robot is currently registered to (currently only one)
 };
 
 #endif  // RESOURCE_MONITOR_HPP

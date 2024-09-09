@@ -46,7 +46,6 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 
   // Initialize internal variables
   current_floor_id_ = "";
-  registered_resource_ = "";  // TODO: Manage more than one resource at a time?
 
   // Subscribe to /fleet_states to obtain current fleet info
   fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -100,50 +99,32 @@ void ResourceMonitor::checkAndAccessResources()
 
     // Request registration to server when the distance to the target resource is within the specified distance and the
     // robot is not passing
-    if (distance <= resource_registration_distance_ && registered_resource_ != resource.resource_id_)
+    if (distance <= resource_registration_distance_ && !resource.registration_state_)
     {
-      if (rclcpp::ok() && !resource.registration_state_)
+      nlohmann::json response_json = accessResourceServer(resource, "registration");
+
+      if (!response_json.is_null())
       {
-        // Receive response from server
-        nlohmann::json response_json = accessResourceServer(resource, "registration");
+        int result = response_json.value("result", -1);
 
-        if (!response_json.is_null())
+        if (result == 1)
         {
-          int result = response_json.value("result", -1);
-
-          if (result == 1)
-          {
-            RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.",
-                        resource.resource_id_.c_str());
-            resource.registration_state_ = true;
-            registered_resource_ = resource.resource_id_;
-          }
-          else if (result == 2)
-          {
-            RCLCPP_WARN(this->get_logger(),
-                        "Registration: Resource %s is already registered by other robots, publishing obstacle.",
-                        resource.resource_id_.c_str());
-            publishObstacle(resource);
-            rclcpp::sleep_for(std::chrono::milliseconds(500));
-          }
-          else
-          {
-            RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
-                        resource.resource_id_.c_str(), result);
-            if (block_on_failure_)
-            {
-              RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
-                          resource.resource_id_.c_str());
-              publishObstacle(resource);
-            }
-            rclcpp::sleep_for(std::chrono::milliseconds(500));
-          }
+          RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.",
+                      resource.resource_id_.c_str());
+          resource.registration_state_ = true;
+        }
+        else if (result == 2)
+        {
+          RCLCPP_WARN(this->get_logger(),
+                      "Registration: Resource %s is already registered by other robots, publishing obstacle.",
+                      resource.resource_id_.c_str());
+          publishObstacle(resource);
+          rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
         else
         {
-          RCLCPP_ERROR(this->get_logger(),
-                       "Registration: Received an invalid or empty response from the server for resource %s.",
-                       resource.resource_id_.c_str());
+          RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
+                      resource.resource_id_.c_str(), result);
           if (block_on_failure_)
           {
             RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
@@ -153,42 +134,51 @@ void ResourceMonitor::checkAndAccessResources()
           rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
       }
-    }
-    else if (distance >= resource_release_distance_ && registered_resource_ == resource.resource_id_)
-    {
-      if (resource.registration_state_)
+      else
       {
-        nlohmann::json response_json = accessResourceServer(resource, "release");
-
-        if (!response_json.is_null())
+        RCLCPP_ERROR(this->get_logger(),
+                     "Registration: Received an invalid or empty response from the server for resource %s.",
+                     resource.resource_id_.c_str());
+        if (block_on_failure_)
         {
-          int result = response_json.value("result", -1);
+          RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
+                      resource.resource_id_.c_str());
+          publishObstacle(resource);
+        }
+        rclcpp::sleep_for(std::chrono::milliseconds(500));
+      }
+    }
+    else if (distance >= resource_release_distance_ && resource.registration_state_)
+    {
+      nlohmann::json response_json = accessResourceServer(resource, "release");
 
-          if (result == 1)
-          {
-            RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id_.c_str());
-            resource.registration_state_ = false;
-            registered_resource_ = "";
-          }
-          else if (result == 2)
-          {
-            RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
-            rclcpp::sleep_for(std::chrono::milliseconds(500));
-          }
-          else
-          {
-            RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d",
-                         resource.resource_id_.c_str(), result);
-            rclcpp::sleep_for(std::chrono::milliseconds(500));
-          }
+      if (!response_json.is_null())
+      {
+        int result = response_json.value("result", -1);
+
+        if (result == 1)
+        {
+          RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id_.c_str());
+          resource.registration_state_ = false;
+        }
+        else if (result == 2)
+        {
+          RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
+          rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
         else
         {
-          RCLCPP_ERROR(this->get_logger(),
-                       "Release: Received an invalid or empty response from the server for resource %s.",
-                       resource.resource_id_.c_str());
+          RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id_.c_str(),
+                       result);
           rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Release: Received an invalid or empty response from the server for resource %s.",
+                     resource.resource_id_.c_str());
+        rclcpp::sleep_for(std::chrono::milliseconds(500));
       }
     }
   }
