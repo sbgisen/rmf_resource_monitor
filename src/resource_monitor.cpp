@@ -88,13 +88,13 @@ void ResourceMonitor::checkAndAccessResources()
 {
   for (auto& resource : route_resources_)
   {
-    // Ignore resources that are not on the same floor
+    // Ignore resources that are not on the same floor as the robot
     if (resource.floor_id_ != current_floor_id_)
     {
       continue;
     }
 
-    double distance = calculateDistance(current_position_, resource.coord_x_, resource.coord_y_);
+    double distance = calculateDistance(current_position_, resource.center_x_, resource.center_y_);
 
     // Request registration to server when the distance to the target resource is within the specified distance and the
     // robot is not passing
@@ -120,7 +120,7 @@ void ResourceMonitor::checkAndAccessResources()
           {
             RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.",
                         resource.resource_id_.c_str());
-            publishObstacle(resource.coord_x_, resource.coord_y_);
+            publishObstacle(resource.center_x_, resource.center_y_);
             rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
           else
@@ -314,8 +314,8 @@ void ResourceMonitor::loadResourcesFromYaml(const std::string& yaml_file)
       Resource res;
       res.resource_id_ = resource["resource_id"].as<std::string>();
       res.floor_id_ = resource["floor_id"].as<std::string>();
-      res.coord_x_ = resource["coord_x"].as<float>();
-      res.coord_y_ = resource["coord_y"].as<float>();
+      res.center_x_ = resource["center_x"].as<float>();
+      res.center_y_ = resource["center_y"].as<float>();
       res.registration_state_ = false;
       route_resources_.emplace_back(res);
     }

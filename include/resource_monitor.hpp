@@ -52,8 +52,8 @@ private:
   {
     std::string resource_id_;
     std::string floor_id_;
-    float coord_x_;
-    float coord_y_;
+    float center_x_;
+    float center_y_;
     bool registration_state_;
   };
 
