@@ -16,14 +16,13 @@
 
 #include "resource_monitor.hpp"
 
-// グローバル関数の実装
 static size_t writeCallback(void* contents, size_t size, size_t nmemb, void* userp)
 {
   ((std::string*)userp)->append((char*)contents, size * nmemb);
   return size * nmemb;
 }
 
-//コンストラクタ
+// Constructor
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 {
   this->declare_parameter<std::string>("robot_id", "robot");
@@ -47,19 +46,18 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   current_floor_id_ = "";
   registered_resource_ = "";  // TODO: Manage more than one resource at a time?
 
-  // /fleet_states トピックにサブスクライブ
+  // Subscribe to /fleet_states to obtain current fleet info
   fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
       "/fleet_states", 10, std::bind(&ResourceMonitor::fleetCallback, this, std::placeholders::_1));
 
-  // 障害物トピックのパブリッシャーを設定
+  // Publish unavailable resources as obstacles
   obstacle_publisher_ = this->create_publisher<rmf_obstacle_msgs::msg::Obstacles>("/rmf_obstacles", 10);
 
-  // タイマーを設定して、初回のフリートメッセージを受信した後にcheck_and_access_resourcesを実行
-  timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0),  // 1秒ごとに実行
-                                   std::bind(&ResourceMonitor::timerCallback, this));
+  // Run the check_and_access_resources function after receiving the first fleet message (1Hz)
+  timer_ =
+      this->create_wall_timer(std::chrono::duration<double>(1.0), std::bind(&ResourceMonitor::timerCallback, this));
 }
 
-// Fleet Callback： ロボットの現在位置(x, y)を取得するcallback関数
 void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg)
 {
   for (const auto& robot : msg->robots)
@@ -68,14 +66,13 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
     {
       continue;
     }
-    // ロボットの現在位置を取得
     current_position_.position.x = robot.location.x;
     current_position_.position.y = robot.location.y;
     current_floor_id_ = robot.location.level_name;
 
     RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f, level_name=%s", robot.name.c_str(),
                 current_position_.position.x, current_position_.position.y, current_floor_id_.c_str());
-    // 初めてフリートメッセージを受信した場合
+    // When the first fleet message is received, start the periodic resource checks
     if (!first_fleet_message_received_)
     {
       first_fleet_message_received_ = true;
@@ -86,29 +83,26 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
   }
 }
 
-// Periodically Run： リソースを確認しアクセスする関数
+// Periodically Run: Function to check and access resources
 void ResourceMonitor::checkAndAccessResources()
 {
-  // リソースのリストをループ
   for (auto& resource : route_resources_)
   {
-    // 距離を計算
     double distance = calculateDistance(current_position_, resource.coord_x_, resource.coord_y_);
 
-    // 対象のリソースとの距離が5m以内かつ対象のリソースを通過中でない場合、サーバーに登録リクエストを送信
+    // Request registration to server when the distance to the target resource is within the specified distance and the
+    // robot is not passing
     if (distance <= resource_registration_distance_ && registered_resource_ != resource.resource_id_)
     {
       if (rclcpp::ok() && !resource.registration_state_)
       {
-        // サーバーにリクエストを送信し、レスポンスを取得
+        // Receive response from server
         nlohmann::json response_json = accessResourceServer(resource, "registration");
 
-        // レスポンスが空でないか、またはエラーフィールドの処理
         if (!response_json.is_null())
         {
           int result = response_json.value("result", -1);
 
-          // レスポンスの結果に基づいて処理を分岐
           if (result == 1)
           {
             RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.",
@@ -121,13 +115,13 @@ void ResourceMonitor::checkAndAccessResources()
             RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.",
                         resource.resource_id_.c_str());
             publishObstacle(resource.coord_x_, resource.coord_y_);
-            rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+            rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
           else
           {
             RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
                         resource.resource_id_.c_str(), result);
-            rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+            rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
         }
         else
@@ -135,7 +129,7 @@ void ResourceMonitor::checkAndAccessResources()
           RCLCPP_ERROR(this->get_logger(),
                        "Registration: Received an invalid or empty response from the server for resource %s.",
                        resource.resource_id_.c_str());
-          rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+          rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
       }
     }
@@ -143,14 +137,12 @@ void ResourceMonitor::checkAndAccessResources()
     {
       if (resource.registration_state_)
       {
-        // サーバーにリクエストを送信し、レスポンスを取得
         nlohmann::json response_json = accessResourceServer(resource, "release");
 
         if (!response_json.is_null())
         {
           int result = response_json.value("result", -1);
 
-          // レスポンスの結果に基づいて処理を分岐
           if (result == 1)
           {
             RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id_.c_str());
@@ -160,13 +152,13 @@ void ResourceMonitor::checkAndAccessResources()
           else if (result == 2)
           {
             RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
-            rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+            rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
           else
           {
             RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d",
                          resource.resource_id_.c_str(), result);
-            rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+            rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
         }
         else
@@ -174,17 +166,15 @@ void ResourceMonitor::checkAndAccessResources()
           RCLCPP_ERROR(this->get_logger(),
                        "Release: Received an invalid or empty response from the server for resource %s.",
                        resource.resource_id_.c_str());
-          rclcpp::sleep_for(std::chrono::milliseconds(500));  // 0.5秒のスリープ
+          rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
       }
     }
   }
 }
 
-// タイマーコールバック関数
 void ResourceMonitor::timerCallback()
 {
-  // 初めてのフリートメッセージが受信された後に実行
   if (first_fleet_message_received_)
   {
     checkAndAccessResources();
@@ -195,19 +185,17 @@ void ResourceMonitor::timerCallback()
   }
 }
 
-// 2つのpose間の距離を計算する関数
 double ResourceMonitor::calculateDistance(const geometry_msgs::msg::Pose& position1, const float coord_x,
                                           const float coord_y)
 {
   return std::sqrt(std::pow(position1.position.x - coord_x, 2) + std::pow(position1.position.y - coord_y, 2));
 }
 
-// サーバーアクセス関数
 nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, const std::string& api_endpoint)
 {
   CURL* curl;
   CURLcode res;
-  std::string response_data;  // サーバーからのレスポンスデータを格納する変数
+  std::string response_data;
   nlohmann::json response_json;
 
   curl = curl_easy_init();
@@ -234,14 +222,11 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    // レスポンスデータを受け取るためのコールバック関数を設定
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
 
-    // リクエストを実行
     res = curl_easy_perform(curl);
 
-    // エラーチェック
     if (res != CURLE_OK)
     {
       RCLCPP_ERROR(this->get_logger(), "curl_easy_perform() failed: %s", curl_easy_strerror(res));
@@ -253,7 +238,6 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
 
       if (response_code == 200)
       {
-        // JSONレスポンスを解析
         try
         {
           response_json = nlohmann::json::parse(response_data);
@@ -280,24 +264,21 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
       }
     }
 
-    // ヘッダーの解放
     curl_slist_free_all(headers);
-    // リソースの解放
     curl_easy_cleanup(curl);
   }
 
-  // パースされたJSONレスポンスを返す
   return response_json;
 }
 
 void ResourceMonitor::publishObstacle(const float x, const float y)
 {
+  // Generate obstacle message
   auto message = rmf_obstacle_msgs::msg::Obstacles();
 
   message.header.frame_id = "map";
-  // 障害物データを作成
   rmf_obstacle_msgs::msg::Obstacle obstacle;
-  obstacle.header.frame_id = "map";  // フレームIDの設定
+  obstacle.header.frame_id = "map";
   obstacle.header.stamp = this->get_clock()->now();
   obstacle.id = 1;
   obstacle.classification = "example_obstacle";
@@ -309,9 +290,8 @@ void ResourceMonitor::publishObstacle(const float x, const float y)
   obstacle.bbox.size.y = 2.0;
   obstacle.bbox.size.z = 2.0;
   obstacle.level_name = current_floor_id_;
-  obstacle.lifetime = rclcpp::Duration(1, 0);  // 1秒間の寿命
+  obstacle.lifetime = rclcpp::Duration(1, 0);  // Obstacle will be removed after 1 second
 
-  // メッセージに障害物を追加
   message.obstacles.push_back(obstacle);
 
   RCLCPP_INFO(this->get_logger(), "Publishing obstacle");

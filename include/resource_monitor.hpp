@@ -34,7 +34,7 @@
 class ResourceMonitor : public rclcpp::Node
 {
 public:
-  // コンストラクタ
+  // Constructor
   ResourceMonitor();
 
 private:
@@ -47,7 +47,7 @@ private:
   float resource_release_distance_;       // Release registered resources at a distance away from this value.
   // Values changed by topic
   std::string current_floor_id_;
-  // リソースを表す構造体
+  // Structure to represent a single resource  // TODO: Consider a cuboid area using the center position?
   struct Resource
   {
     std::string resource_id_;
@@ -57,26 +57,14 @@ private:
     bool registration_state_;
   };
 
-  // フリート状態トピックのコールバック関数
-  void fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg);
-  // 2つのポーズ間の距離を計算する関数
-  double calculateDistance(const geometry_msgs::msg::Pose& position1, const float coord_x, const float coord_y);
-  // 一定間隔でリソースを確認してアクセスする関数
-  void checkAndAccessResources();
-  // サーバーにリソース登録リクエストを送信する関数
-  nlohmann::json accessResourceServer(const Resource& resource, const std::string& api_endpoint);
-
-  // リソース登録解除を行う関数
-  // void release_resource(const Resource &resource);
-
-  //タイマーコールバック関数
-  void timerCallback();
-
-  // 障害物をパブリッシュする関数
-  void publishObstacle(const float x, const float y);
-
-  // YAMLファイルを読み込む関数
   void loadResourcesFromYaml(const std::string& yaml_file);
+  double calculateDistance(const geometry_msgs::msg::Pose& position1, const float coord_x, const float coord_y);
+  nlohmann::json accessResourceServer(const Resource& resource, const std::string& api_endpoint);
+  void checkAndAccessResources();
+
+  void timerCallback();
+  void fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg);
+  void publishObstacle(const float x, const float y);
 
   // スケジュールトピックのコールバック関数
   // void schedule_callback(const std_msgs::msg::String::SharedPtr msg);
@@ -84,16 +72,14 @@ private:
   // スケジュールデータからリソースを抽出する関数
   // std::vector<Resource> extract_resources_from_schedule(const std::string &schedule_data);
 
-  // メンバ変数
-  rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_subscription_;  // フリート状態サブスクライバ
-  rclcpp::Publisher<rmf_obstacle_msgs::msg::Obstacles>::SharedPtr obstacle_publisher_;  // 障害物パブリッシャ
-  rclcpp::TimerBase::SharedPtr timer_;                                                  // 定期実行タイマー
+  rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_subscription_;
+  rclcpp::Publisher<rmf_obstacle_msgs::msg::Obstacles>::SharedPtr obstacle_publisher_;
+  rclcpp::TimerBase::SharedPtr timer_;  // Timer for periodic resource checks
 
-  geometry_msgs::msg::Pose current_position_;  // 現在位置
-  std::vector<Resource> route_resources_;      // 経路上のリソース
-  std::string registered_resource_;            //ロボットが専有しているリソース
-
-  bool first_fleet_message_received_;  //初めてフリートメッセージをサブスクライブしたかかどうかのフラグ
+  bool first_fleet_message_received_;          // Flag to show that the first fleet message has been received
+  geometry_msgs::msg::Pose current_position_;  // The target robot's current position
+  std::vector<Resource> route_resources_;      // List of resources managed by the server, read from yaml config file
+  std::string registered_resource_;  // The resource that the robot is currently registered to (currently only one)
 };
 
 #endif  // RESOURCE_MONITOR_HPP
