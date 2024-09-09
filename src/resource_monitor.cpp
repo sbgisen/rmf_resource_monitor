@@ -309,17 +309,15 @@ void ResourceMonitor::loadResourcesFromYaml(const std::string& yaml_file)
   try
   {
     YAML::Node config = YAML::LoadFile(yaml_file);
-    if (config["route_resources"])
+    for (const auto& resource : config["route_resources"])
     {
-      for (const auto& resource : config["route_resources"])
-      {
-        Resource res;
-        res.resource_id_ = resource["resource_id"].as<std::string>();
-        res.floor_id_ = resource["floor_id"].as<std::string>();
-        res.coord_x_ = resource["coord_x"].as<float>();
-        res.coord_y_ = resource["coord_y"].as<float>();
-        route_resources_.emplace_back(res);
-      }
+      Resource res;
+      res.resource_id_ = resource["resource_id"].as<std::string>();
+      res.floor_id_ = resource["floor_id"].as<std::string>();
+      res.coord_x_ = resource["coord_x"].as<float>();
+      res.coord_y_ = resource["coord_y"].as<float>();
+      res.registration_state_ = false;
+      route_resources_.emplace_back(res);
     }
   }
   catch (const YAML::Exception& e)

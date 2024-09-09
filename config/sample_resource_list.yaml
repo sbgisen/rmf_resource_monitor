@@ -1,7 +1,6 @@
 ---
-route_resources:
-  - resource_id: "R01"
-    floor_id: "1F"
-    coord_x: 0.0
-    coord_y: 0.0
-    registration_state: false
+# Define a list of resources that the robot needs to register when passing.
+- resource_id: "R01"  # Should match the resource ID used by the resource management server
+  floor_id: "1F"  # Should match the level name used by Open-RMF
+  coord_x: 0.0
+  coord_y: 0.0
