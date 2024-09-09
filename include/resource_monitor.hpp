@@ -45,6 +45,7 @@ private:
   std::string resource_config_file_;
   float resource_registration_distance_;  // Register to resources within this distance.
   float resource_release_distance_;       // Release registered resources at a distance away from this value.
+  bool block_on_failure_;                 // Publish obstacle info when failed to access the server
   // Values changed by topic
   std::string current_floor_id_;
   // Structure to represent a single resource

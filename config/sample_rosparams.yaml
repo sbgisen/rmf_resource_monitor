@@ -7,3 +7,4 @@ rmf_resource_monitor:
     resource_config_file: "path/to/resource_list.yaml"
     resource_registration_distance: 3.4
     resource_release_distance: 4.0
+    block_on_failure: false  # If true, the node will publish obstacles when it fails to connect to the server

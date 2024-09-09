@@ -31,6 +31,7 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   this->declare_parameter<std::string>("resource_config_file", "");
   this->declare_parameter<double>("resource_registration_distance", 3.4);
   this->declare_parameter<double>("resource_release_distance", 4.0);
+  this->declare_parameter<bool>("block_on_failure", false);
 
   // Get parameters from parameter server
   robot_id_ = this->get_parameter("robot_id").as_string();
@@ -39,6 +40,7 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   resource_config_file_ = this->get_parameter("resource_config_file").as_string();
   resource_registration_distance_ = this->get_parameter("resource_registration_distance").as_double();
   resource_release_distance_ = this->get_parameter("resource_release_distance").as_double();
+  block_on_failure_ = this->get_parameter("block_on_failure").as_bool();
   RCLCPP_INFO(this->get_logger(), "Loading resource info from file: %s", resource_config_file_.c_str());
   loadResourcesFromYaml(resource_config_file_);
 
@@ -118,7 +120,8 @@ void ResourceMonitor::checkAndAccessResources()
           }
           else if (result == 2)
           {
-            RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.",
+            RCLCPP_WARN(this->get_logger(),
+                        "Registration: Resource %s is already registered by other robots, publishing obstacle.",
                         resource.resource_id_.c_str());
             publishObstacle(resource);
             rclcpp::sleep_for(std::chrono::milliseconds(500));
@@ -127,6 +130,12 @@ void ResourceMonitor::checkAndAccessResources()
           {
             RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
                         resource.resource_id_.c_str(), result);
+            if (block_on_failure_)
+            {
+              RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
+                          resource.resource_id_.c_str());
+              publishObstacle(resource);
+            }
             rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
         }
@@ -135,6 +144,12 @@ void ResourceMonitor::checkAndAccessResources()
           RCLCPP_ERROR(this->get_logger(),
                        "Registration: Received an invalid or empty response from the server for resource %s.",
                        resource.resource_id_.c_str());
+          if (block_on_failure_)
+          {
+            RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
+                        resource.resource_id_.c_str());
+            publishObstacle(resource);
+          }
           rclcpp::sleep_for(std::chrono::milliseconds(500));
         }
       }
