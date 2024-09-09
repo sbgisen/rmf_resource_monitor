@@ -43,8 +43,9 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   RCLCPP_INFO(this->get_logger(), "Loading resource info from file: %s", resource_config_file_.c_str());
   loadResourcesFromYaml(resource_config_file_);
 
-  //通過中のリソース初期化
-  registered_resource_ = "";
+  // Initialize internal variables
+  current_floor_id_ = "";
+  registered_resource_ = "";  // TODO: Manage more than one resource at a time?
 
   // /fleet_states トピックにサブスクライブ
   fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -70,10 +71,10 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
     // ロボットの現在位置を取得
     current_position_.position.x = robot.location.x;
     current_position_.position.y = robot.location.y;
+    current_floor_id_ = robot.location.level_name;
 
-    // ログの出力
-    RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f", robot.name.c_str(),
-                current_position_.position.x, current_position_.position.y);
+    RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f, level_name=%s", robot.name.c_str(),
+                current_position_.position.x, current_position_.position.y, current_floor_id_.c_str());
     // 初めてフリートメッセージを受信した場合
     if (!first_fleet_message_received_)
     {
@@ -307,7 +308,7 @@ void ResourceMonitor::publishObstacle(const float x, const float y)
   obstacle.bbox.size.x = 2.0;
   obstacle.bbox.size.y = 2.0;
   obstacle.bbox.size.z = 2.0;
-  obstacle.level_name = "27F";                 // 必要なレベル名
+  obstacle.level_name = current_floor_id_;
   obstacle.lifetime = rclcpp::Duration(1, 0);  // 1秒間の寿命
 
   // メッセージに障害物を追加

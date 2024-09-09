@@ -38,13 +38,15 @@ public:
   ResourceMonitor();
 
 private:
+  // Values set by rosparam
   std::string robot_id_;
   std::string building_id_;
   std::string server_url_;
   std::string resource_config_file_;
   float resource_registration_distance_;  // Register to resources within this distance.
   float resource_release_distance_;       // Release registered resources at a distance away from this value.
-
+  // Values changed by topic
+  std::string current_floor_id_;
   // リソースを表す構造体
   struct Resource
   {
