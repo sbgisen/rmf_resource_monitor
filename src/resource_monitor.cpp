@@ -41,6 +41,21 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   resource_registration_distance_ = this->get_parameter("resource_registration_distance").as_double();
   resource_release_distance_ = this->get_parameter("resource_release_distance").as_double();
   block_on_failure_ = this->get_parameter("block_on_failure").as_bool();
+  // Validations
+  if (resource_config_file_.empty())
+  {
+    throw std::runtime_error("Resource config file path is empty. Please set the parameter.");
+  }
+  if (resource_registration_distance_ <= 0.0)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Invalid resource registration distance, using default value.");
+    resource_registration_distance_ = 3.4;
+  }
+  if (resource_release_distance_ <= 0.0 or resource_release_distance_ <= resource_registration_distance_)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Invalid resource release distance, using default value.");
+    resource_release_distance_ = 4.0;
+  }
   RCLCPP_INFO(this->get_logger(), "Loading resource info from file: %s", resource_config_file_.c_str());
   loadResourcesFromYaml(resource_config_file_);
 
