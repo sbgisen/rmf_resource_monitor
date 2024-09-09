@@ -120,7 +120,7 @@ void ResourceMonitor::checkAndAccessResources()
           {
             RCLCPP_WARN(this->get_logger(), "Registration: Resource %s is already registered by other robot.",
                         resource.resource_id_.c_str());
-            publishObstacle(resource.center_x_, resource.center_y_);
+            publishObstacle(resource);
             rclcpp::sleep_for(std::chrono::milliseconds(500));
           }
           else
@@ -277,7 +277,7 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
   return response_json;
 }
 
-void ResourceMonitor::publishObstacle(const float x, const float y)
+void ResourceMonitor::publishObstacle(const Resource& resource)
 {
   // Generate obstacle message
   auto message = rmf_obstacle_msgs::msg::Obstacles();
@@ -289,12 +289,12 @@ void ResourceMonitor::publishObstacle(const float x, const float y)
   obstacle.id = 1;
   obstacle.classification = "example_obstacle";
   obstacle.source = "ResourceMonitor";
-  obstacle.bbox.center.position.x = x;
-  obstacle.bbox.center.position.y = y;
+  obstacle.bbox.center.position.x = resource.center_x_;
+  obstacle.bbox.center.position.y = resource.center_y_;
   obstacle.bbox.center.position.z = 0.0;
-  obstacle.bbox.size.x = 2.0;
-  obstacle.bbox.size.y = 2.0;
-  obstacle.bbox.size.z = 2.0;
+  obstacle.bbox.size.x = resource.size_x_;
+  obstacle.bbox.size.y = resource.size_y_;
+  obstacle.bbox.size.z = resource.size_z_;
   obstacle.level_name = current_floor_id_;
   obstacle.lifetime = rclcpp::Duration(1, 0);  // Obstacle will be removed after 1 second
 
@@ -316,6 +316,9 @@ void ResourceMonitor::loadResourcesFromYaml(const std::string& yaml_file)
       res.floor_id_ = resource["floor_id"].as<std::string>();
       res.center_x_ = resource["center_x"].as<float>();
       res.center_y_ = resource["center_y"].as<float>();
+      res.size_x_ = resource["size_x"].as<float>(2.0f);
+      res.size_y_ = resource["size_y"].as<float>(2.0f);
+      res.size_z_ = resource["size_z"].as<float>(2.0f);
       res.registration_state_ = false;
       route_resources_.emplace_back(res);
     }

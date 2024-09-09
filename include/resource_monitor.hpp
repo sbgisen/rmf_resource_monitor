@@ -47,13 +47,16 @@ private:
   float resource_release_distance_;       // Release registered resources at a distance away from this value.
   // Values changed by topic
   std::string current_floor_id_;
-  // Structure to represent a single resource  // TODO: Consider a cuboid area using the center position?
+  // Structure to represent a single resource
   struct Resource
   {
     std::string resource_id_;
     std::string floor_id_;
     float center_x_;
     float center_y_;
+    float size_x_;
+    float size_y_;
+    float size_z_;
     bool registration_state_;
   };
 
@@ -64,7 +67,7 @@ private:
 
   void timerCallback();
   void fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg);
-  void publishObstacle(const float x, const float y);
+  void publishObstacle(const Resource& resource);
 
   // スケジュールトピックのコールバック関数
   // void schedule_callback(const std_msgs::msg::String::SharedPtr msg);

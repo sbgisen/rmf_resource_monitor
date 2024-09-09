@@ -4,3 +4,7 @@
   floor_id: "1F"  # Should match the level name used by Open-RMF
   center_x: 0.0
   center_y: 0.0
+  # Default values will be used for the following values when unspecified
+  size_x: 2.0  # The bounding box size of the published obstacles
+  size_y: 2.0
+  size_z: 2.0
