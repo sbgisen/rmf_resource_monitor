@@ -88,6 +88,12 @@ void ResourceMonitor::checkAndAccessResources()
 {
   for (auto& resource : route_resources_)
   {
+    // Ignore resources that are not on the same floor
+    if (resource.floor_id_ != current_floor_id_)
+    {
+      continue;
+    }
+
     double distance = calculateDistance(current_position_, resource.coord_x_, resource.coord_y_);
 
     // Request registration to server when the distance to the target resource is within the specified distance and the
