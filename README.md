@@ -6,7 +6,7 @@ ROS 2 node for accessing a **Resource Management Server** and using its results 
 
 Resource Management Server is a concept standardized by [RFA (Robot Friendly Asset Promotion Association)](https://robot-friendly.org/).
 
-The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside a certain building. Each robots are expected to "register" to the resource by accessing the server before entering the resource.
+The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings. Each robots are expected to "register" to the resource by accessing the server before entering the resource.
 
 The resource management server is expected to serve as a bridge for sharing information between different robot fleets managed by separate systems.
 
@@ -16,6 +16,7 @@ In this repository, we provide a ROS 2 node that accesses the Resource Managemen
 
 - [rmf_obstacles](https://github.com/open-rmf/rmf_obstacle)
 
+  Collection of ROS 2 packages for obstacle detection and publishing their info for the Open-RMF fleets to use.
   <!-- ROS 2 packages for obstacle detection and publishing their info for the Open-RMF fleets to use. -->
 
 - [resource_management_server](https://github.com/sbgisen/resource_management_server)
@@ -32,7 +33,7 @@ In this repository, we provide a ROS 2 node that accesses the Resource Managemen
 #### Prepare Resource Management Server and its Configuration
 
 Here we will use the sample implementation repository described above.
-Follow the instructions written inside the [README](https://github.com/sbgisen/resource_management_server/blob/develop/README.md).
+Follow the instructions written inside its [README](https://github.com/sbgisen/resource_management_server/blob/develop/README.md).
 
 Note that the Resource Management Server is independent of the ROS 2 environment, including the map coordinates used by the Open-RMF system.
 
@@ -51,7 +52,8 @@ The actual definition of resources is yet to be defined by RFA. This configurati
 
 ### Create a Parameter Configuration File
 
-**NOTE: Currently the `rmf_resource_monitor` node can handle only one robot a time. Multiple nodes are necessary for multiple robots.**
+>[!Note]
+Currently the `rmf_resource_monitor` node can handle only one robot at a time. Multiple nodes are necessary for multiple robots.
 
 Create a settings file for the `rmf_resource_monitor` node. See [sample_rosparams.yaml](config/sample_rosparams.yaml) for an example.
 
@@ -69,7 +71,7 @@ Parameter explanations
 
 - `resource_release_distance`: The distance (meters) from the resource where the robot should release the resource. The robot will release the resource when it is within this distance from the resource. This should be set to a value that is larger than `resource_registration_distance` to avoid the robot registering and releasing the resource repeatedly. Defaults to `4.0`.
 
-- `block_on_failure`: If `true`, the node will publish obstacle message of the targeted resource when the robot cannot access the Resource Management Server. Defaults to `false`. This depends on whether you want to stop the robot when the server is unaccessible.
+- `block_on_failure`: If `true`, the node will publish obstacle message of the targeted resource when the robot cannot access the Resource Management Server. Defaults to `false`. This depends on whether you want to prevent the robot from passing the resource when the server is unaccessible.
 
 The config file created here will be referred to as **Config File C** hereinafter.
 
@@ -77,9 +79,14 @@ The config file created here will be referred to as **Config File C** hereinafte
 
 TODO
 
-### Add Lane Blocking Support to Fleet Adapter (Optional)
+### Add Lane Blocking Support to Fleet Adapter
 
-TODO
+The `lane_blocker_node` from the [rmf_obstacle](https://github.com/open-rmf/rmf_obstacle) repository will be responsible for publishing lane closure messages when obstacle messages are caught.
+
+The lane request messages from the `lane_blocker_node` needs to be handled by your fleet's Fleet Adapter. Make sure to open and close lanes depending on the messages. See [this Fleet Adapter implementation](https://github.com/open-rmf/rmf_demos/blob/95b7335068bab6b31fcaeb6bdd582b2492fddfa0/rmf_demos_fleet_adapter/rmf_demos_fleet_adapter/fleet_adapter.py#L423-L495) for an example.
+
+>[!Note]
+Currently, the above implementation is usually not included in Fleet Adapters derived from the Open-RMF's [`fleet_adapter_template` package](https://github.com/open-rmf/fleet_adapter_template). The above is what we follow in our current implementation but there might be better ways to handle this.
 
 ### Clone and Build packages
 
@@ -112,7 +119,7 @@ source install/setup.bash
 
 3. Run the `lane_blocker_node`
 
-    The `lane_blocker_node` is included in the Open-RMF [rmf_obstacle](https://github.com/open-rmf/rmf_obstacle)
+    Run the `lane_blocker_node` if it is not launched at the previous step.
 
     ```bash
     ros2 run rmf_obstacle_ros2 lane_blocker_node --ros-args -p lane_closure_threshold:=1 -p speed_limit_threshold:=1 -p continuous_checker:=true
@@ -132,23 +139,25 @@ source install/setup.bash
     ros2 run rmf_demos_tasks dispatch_go_to_place -p demo_target -R <robot_name> -F <fleet_name>
     ```
 
-6. Register to a resource using a dummy robot ID
+6. (For testing behaviors) Register to a resource using a dummy robot ID
 
-    If you want to test a situation where another system/robot has registered a certain resource before you robot, you can use the following example command to register to a resource using a dummy robot ID. Replace server URL if necessary.
+    If you want to test a situation where another system/robot has registered a certain resource before your robot, you can use the following example command to register to a resource using a dummy robot ID. Replace server URL if necessary.
 
     ```bash
     curl -X POST http://127.0.0.1:5000/api/registration -H "Content-Type: application/json" -d '{
     "api": "Registration",
-    "bldg_id" : "<building_id>",
     "robot_id": "dummy_robot_id",
+    "bldg_id" : "<building_id>",
     "resource_id": "<resource_id>",
     "timeout" : 0,
     "request_id": "12345",
-    "timestamp": 1625140800
+    "timestamp": 1725962117942
     }'
     ```
 
-    To unregister, use the following command.
+    Make sure the `timestamp` value is the actual time or the request will be rejected. `request_id` can be any string.
+
+    To unregister, wait until `max_expiration_time` for the resource passes or use the following command.
 
     ```bash
     curl -X POST http://127.0.0.1:5000/api/release -H "Content-Type: application/json" -d '{
@@ -158,6 +167,6 @@ source install/setup.bash
     "resource_id": "<resource_id>",
     "timeout" : 0,
     "request_id": "12345",
-    "timestamp": 1625140800
+    "timestamp": 1725962117942
     }'
     ```
