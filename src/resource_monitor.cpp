@@ -22,6 +22,15 @@ static size_t writeCallback(void* contents, size_t size, size_t nmemb, void* use
   return size * nmemb;
 }
 
+// Get the current Unix timestamp in milliseconds
+long long getUnixTimestamp()
+{
+  rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
+  rclcpp::Time now = clock->now();
+  long long unix_timestamp = now.nanoseconds() / 1000000;
+  return unix_timestamp;
+}
+
 // Constructor
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 {
@@ -228,26 +237,24 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
 
   if (curl)
   {
+    long long timestamp = getUnixTimestamp();
     std::string url = server_url_ + "/api/" + api_endpoint;
     std::string json_data;
 
     if (api_endpoint == "registration")
-      json_data = "{\"api\":\"Registration\",\"bldg_id\":\"" + building_id_ + "\",\"resource_id_\":\"" +
-                  resource.resource_id_ + "\",\"robot_id\":\"" + robot_id_ + "\",\"request_id\":\"Request01\"}";
+      json_data = "{\"api\":\"Registration\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
+                  "\",\"resource_id\":\"" + resource.resource_id_ +
+                  "\",\"timeout\":0,\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
+
     else if (api_endpoint == "release")
-      json_data = "{\"api\":\"Release\",\"bldg_id\":\"" + building_id_ + "\",\"resource_id_\":\"" +
-                  resource.resource_id_ + "\",\"robot_id\":\"" + robot_id_ + "\",\"request_id\":\"Request01\"}";
-    // URLの設定
+      json_data = "{\"api\":\"Release\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
+                  "\",\"resource_id\":\"" + resource.resource_id_ +
+                  "\",\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-
-    // POSTデータの設定
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
-
-    // Content-Type ヘッダーの設定
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
 
