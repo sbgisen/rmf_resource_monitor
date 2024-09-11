@@ -22,7 +22,6 @@ In this repository, we provide a ROS 2 node that accesses the Resource Managemen
 - [resource_management_server](https://github.com/sbgisen/resource_management_server)
 
   Sample implementation of a Resource Management Server. Used for testing basic functionalities.
-  ONLY FOR TESTING PURPOSES.
 
 <!-- ## Dependencies and Setup -->
 
@@ -109,7 +108,7 @@ source install/setup.bash
 
     ```bash
     cd ~/workspace/resource_management_server/resource_management_server
-    export FLASK_APP=resource_management_server
+    export RESOURCE_YAML_PATH=/path/to/config_file_A.yaml
     flask run --host=0.0.0.0 --port=5000
     ```
 
