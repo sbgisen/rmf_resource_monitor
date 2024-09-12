@@ -6,24 +6,46 @@ ROS 2 node for accessing a **Resource Management Server** and using its results 
 
 Resource Management Server is a concept standardized by [RFA (Robot Friendly Asset Promotion Association)](https://robot-friendly.org/).
 
-The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings. Each robots are expected to "register" to the resource by accessing the server before entering the resource.
+The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings. It is expected to serve as a bridge for sharing blockage information between separate robot fleets managed by separate systems (either based on Open-RMF or not).
 
-The resource management server is expected to serve as a bridge for sharing information between different robot fleets managed by separate systems.
+Each robots trying to pass the resource are expected to "register" to the resource by accessing the server before entering the resource.  Information about the resource is expected to be shared beforehand to all fleet system managers by the Resource Management Server operator.
+
+Such servers and agreements to use it are necessary because the robots working inside a certain building does not always belong to the same fleet management system.
 
 In this repository, we provide a ROS 2 node that accesses the Resource Management Server and uses its results for publishing obstacle information for the Open-RMF fleets to use.
+
+The following are some example movies showing RViz visualization of the obstacle information published by this node. 2 robots (both operated by separate Open-RMF systems) are trying to pass a "resource" (made to look like a narrow aisle).
+
+The obstacle appears and the lanes are blocked for the robot on the right side when the other robot (the one coming from the left side) registers to the resource and disappears when the robot releases the resource.
+
+<table>
+  <tr>
+    <td><img src=".readme/oncoming_robot.gif" alt="oncoming_robot" width="400"></td>
+    <td><img src=".readme/stop_due_to_registration_failure.gif" alt="stop_due_to_registration_failure" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center">(RMF A) Nothing is shown when resource is successfully registered</td>
+    <td align="center">(RMF B) Obstacle appears when registration fails</td>
+  </tr>
+  <tr>
+    <td><img src=".readme/resume_by_registration_success.gif" alt="resume_by_registration_success" width="400"></td>
+    <td><img src=".readme/real_movement.gif" alt="real_movement" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center">(RMF B) Obstacle disappears when registration succeeds</td>
+    <td align="center">Actual Movement (White one works on RMF A, Black one on RMF B)</td>
+  </tr>
+</table>
 
 ## Related Repositories
 
 - [rmf_obstacles](https://github.com/open-rmf/rmf_obstacle)
 
   Collection of ROS 2 packages for obstacle detection and publishing their info for the Open-RMF fleets to use.
-  <!-- ROS 2 packages for obstacle detection and publishing their info for the Open-RMF fleets to use. -->
 
 - [resource_management_server](https://github.com/sbgisen/resource_management_server)
 
-  Sample implementation of a Resource Management Server. Used for testing basic functionalities.
-
-<!-- ## Dependencies and Setup -->
+  Sample implementation of a Resource Management Server. Can be used for testing basic functionalities.
 
 ## Sample Experiment with Resource Management Server
 
@@ -90,12 +112,13 @@ Currently, the above implementation is usually not included in Fleet Adapters de
 ### Clone and Build packages
 
 ```bash
-cd ~/ros_ws/src
+cd ~/rmf_ws/src
 git clone https://github.com/open-rmf/rmf_obstacle
 git clone https://github.com/sbgisen/rmf_resource_monitor
 # Run the following command if you are not using the OAK-D camera
 # touch rmf_obstacle/rmf_human_detector_oakd/COLCON_IGNORE
-cd ~/ros_ws
+cd ~/rmf_ws
+rosdep install -yr --from-paths . --ignore-src
 colcon build
 source install/setup.bash
 ```
