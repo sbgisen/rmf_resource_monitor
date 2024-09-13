@@ -6,8 +6,8 @@ ROS 2 node for accessing a **Resource Management Server** and using its results 
 
 Resource Management Server is a concept standardized by [RFA (Robot Friendly Asset Promotion Association)](https://robot-friendly.org/).
 
-The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings. It is expected to serve as a bridge for sharing blockage information between separate robot fleets managed by separate systems (either based on Open-RMF or not).
-
+The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings and is expected to serve as a bridge for sharing blockage information between separate robot fleets managed by separate systems (either based on Open-RMF or not).
+![Resource Management Server](.readme/bridging_fleet_systems.png)
 Each robots trying to pass the resource are expected to "register" to the resource by accessing the server before entering the resource.  Information about the resource is expected to be shared beforehand to all fleet system managers by the Resource Management Server operator.
 
 Such servers and agreements to use it are necessary because the robots working inside a certain building does not always belong to the same fleet management system.
