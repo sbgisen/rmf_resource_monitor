@@ -58,6 +58,8 @@ private:
     float size_x_;
     float size_y_;
     float size_z_;
+    float registration_distance_;
+    float release_distance_;
     bool registration_state_;
   };
 

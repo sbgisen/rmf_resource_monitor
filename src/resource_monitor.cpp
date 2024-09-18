@@ -134,7 +134,7 @@ void ResourceMonitor::checkAndAccessResources()
 
     // Request registration to server when the distance to the target resource is within the specified distance and the
     // robot is not passing
-    if (distance <= resource_registration_distance_ && !resource.registration_state_)
+    if (distance <= resource.registration_distance_ && !resource.registration_state_)
     {
       nlohmann::json response_json = accessResourceServer(resource, "registration");
 
@@ -183,7 +183,7 @@ void ResourceMonitor::checkAndAccessResources()
         rclcpp::sleep_for(std::chrono::milliseconds(500));
       }
     }
-    else if (distance >= resource_release_distance_ && resource.registration_state_)
+    else if (distance >= resource.release_distance_ && resource.registration_state_)
     {
       nlohmann::json response_json = accessResourceServer(resource, "release");
 
@@ -357,6 +357,28 @@ void ResourceMonitor::loadResourcesFromYaml(const std::string& yaml_file)
       res.size_x_ = resource["size_x"].as<float>(2.0f);
       res.size_y_ = resource["size_y"].as<float>(2.0f);
       res.size_z_ = resource["size_z"].as<float>(2.0f);
+      // Use the values from the yaml file if they exist and are valid, otherwise use the default values
+      if (resource["registration_distance"] && resource["release_distance"])
+      {
+        float reg_dist = resource["registration_distance"].as<float>();
+        float rel_dist = resource["release_distance"].as<float>();
+
+        if (validateDistances(reg_dist, rel_dist))
+        {
+          res.registration_distance_ = reg_dist;
+          res.release_distance_ = rel_dist;
+        }
+        else
+        {
+          res.registration_distance_ = resource_registration_distance_;
+          res.release_distance_ = resource_release_distance_;
+        }
+      }
+      else
+      {
+        res.registration_distance_ = resource_registration_distance_;
+        res.release_distance_ = resource_release_distance_;
+      }
       res.registration_state_ = false;
       route_resources_.emplace_back(res);
     }

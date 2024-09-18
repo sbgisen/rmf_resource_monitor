@@ -8,3 +8,10 @@
   size_x: 2.0  # The bounding box size of the published obstacles
   size_y: 2.0
   size_z: 2.0
+  registration_distance: 3.4  # If this is defined, the release_distance must also be defined
+  release_distance: 4.0  # Must be larger than the registration_distance
+# This is the minimum required configuration for each resource
+- resource_id: "R02"  # Should match the resource ID used by the resource management server
+  floor_id: "2F"  # Should match the level name used by Open-RMF
+  center_x: 0.0
+  center_y: 0.0
