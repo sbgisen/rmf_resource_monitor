@@ -106,8 +106,8 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
     current_position_.position.y = robot.location.y;
     current_floor_id_ = robot.location.level_name;
 
-    RCLCPP_INFO(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f, level_name=%s", robot.name.c_str(),
-                current_position_.position.x, current_position_.position.y, current_floor_id_.c_str());
+    RCLCPP_DEBUG(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f, level_name=%s", robot.name.c_str(),
+                 current_position_.position.x, current_position_.position.y, current_floor_id_.c_str());
     // When the first fleet message is received, start the periodic resource checks
     if (!first_fleet_message_received_)
     {
@@ -347,7 +347,7 @@ void ResourceMonitor::loadResourcesFromYaml(const std::string& yaml_file)
   try
   {
     YAML::Node config = YAML::LoadFile(yaml_file);
-    for (const auto& resource : config["route_resources"])
+    for (const auto& resource : config)
     {
       Resource res;
       res.resource_id_ = resource["resource_id"].as<std::string>();
