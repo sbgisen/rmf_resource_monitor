@@ -268,6 +268,8 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 2L);  // Timeout for the connection phase
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);         // Timeout for the entire request
 
     res = curl_easy_perform(curl);
 
