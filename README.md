@@ -88,9 +88,9 @@ Parameter explanations
 
 - `resource_config_file`: The absolute path to Config File B.
 
-- `resource_registration_distance`: The distance (meters) from the resource where the robot should register to the server. The robot will try to register to the server when it is within this distance from the resource. This should be set to a value that is appropriate for the robot's speed and the server's response time. Defaults to `3.4`.
+- `resource_registration_distance`: The distance (meters) from the resource where the robot should register to the server. The robot will try to register to the server when it is at or within this distance from the resource. This should be set to a value that is appropriate for the robot's speed and the server's response time. Defaults to `3.4`. This value is also configurable for each resource inside Config File B. The values inside Config File B will be used if they are set and valid.
 
-- `resource_release_distance`: The distance (meters) from the resource where the robot should release the resource. The robot will release the resource when it is within this distance from the resource. This should be set to a value that is larger than `resource_registration_distance` to avoid the robot registering and releasing the resource repeatedly. Defaults to `4.0`.
+- `resource_release_distance`: The distance (meters) from the resource where the robot should release the resource. The robot will release the resource when it is at or beyond this distance from the resource. This should be set to a value that is larger than `resource_registration_distance` to avoid the robot registering and releasing the resource repeatedly. Defaults to `4.0`. This value is also configurable for each resource inside Config File B. The values inside Config File B will be used if they are set and valid.
 
 - `block_on_failure`: If `true`, the node will publish obstacle message of the targeted resource when the robot cannot access the Resource Management Server. Defaults to `false`. This depends on whether you want to prevent the robot from passing the resource when the server is unaccessible.
 
