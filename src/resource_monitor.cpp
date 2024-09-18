@@ -31,6 +31,22 @@ long long getUnixTimestamp()
   return unix_timestamp;
 }
 
+// Make sure registration and release distances are valid values
+bool validateDistances(const float registration_distance, const float release_distance)
+{
+  if (registration_distance <= 0.0)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("ResourceMonitor"), "Invalid resource registration distance, using default value.");
+    return false;
+  }
+  if (release_distance <= 0.0 or release_distance <= registration_distance)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("ResourceMonitor"), "Invalid resource release distance, using default value.");
+    return false;
+  }
+  return true;
+}
+
 // Constructor
 ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 {
@@ -55,14 +71,9 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
   {
     throw std::runtime_error("Resource config file path is empty. Please set the parameter.");
   }
-  if (resource_registration_distance_ <= 0.0)
+  if (!validateDistances(resource_registration_distance_, resource_release_distance_))
   {
-    RCLCPP_ERROR(this->get_logger(), "Invalid resource registration distance, using default value.");
     resource_registration_distance_ = 3.4;
-  }
-  if (resource_release_distance_ <= 0.0 or resource_release_distance_ <= resource_registration_distance_)
-  {
-    RCLCPP_ERROR(this->get_logger(), "Invalid resource release distance, using default value.");
     resource_release_distance_ = 4.0;
   }
   RCLCPP_INFO(this->get_logger(), "Loading resource info from file: %s", resource_config_file_.c_str());

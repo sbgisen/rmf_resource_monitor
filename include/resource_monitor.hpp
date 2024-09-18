@@ -70,12 +70,6 @@ private:
   void fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::msg::FleetState>& msg);
   void publishObstacle(const Resource& resource);
 
-  // スケジュールトピックのコールバック関数
-  // void schedule_callback(const std_msgs::msg::String::SharedPtr msg);
-
-  // スケジュールデータからリソースを抽出する関数
-  // std::vector<Resource> extract_resources_from_schedule(const std::string &schedule_data);
-
   rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_subscription_;
   rclcpp::Publisher<rmf_obstacle_msgs::msg::Obstacles>::SharedPtr obstacle_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;  // Timer for periodic resource checks
@@ -84,5 +78,8 @@ private:
   geometry_msgs::msg::Pose current_position_;  // The target robot's current position
   std::vector<Resource> route_resources_;      // List of resources managed by the server, read from yaml config file
 };
+
+long long getUnixTimestamp();
+bool validateDistances(const float registration_distance, const float release_distance);
 
 #endif  // RESOURCE_MONITOR_HPP
