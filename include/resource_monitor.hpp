@@ -48,6 +48,7 @@ private:
   bool block_on_failure_;                 // Publish obstacle info when failed to access the server
   // Values changed by topic
   std::string current_floor_id_;
+  bool floor_id_changed_;
   // Structure to represent a single resource
   struct Resource
   {

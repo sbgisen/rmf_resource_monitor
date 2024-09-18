@@ -81,6 +81,7 @@ ResourceMonitor::ResourceMonitor() : Node("resource_monitor")
 
   // Initialize internal variables
   current_floor_id_ = "";
+  floor_id_changed_ = false;
 
   // Subscribe to /fleet_states to obtain current fleet info
   fleet_subscription_ = this->create_subscription<rmf_fleet_msgs::msg::FleetState>(
@@ -104,6 +105,11 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
     }
     current_position_.position.x = robot.location.x;
     current_position_.position.y = robot.location.y;
+    // Switch flag if the floor ID has changed
+    if (current_floor_id_ != robot.location.level_name)
+    {
+      floor_id_changed_ = true;
+    }
     current_floor_id_ = robot.location.level_name;
 
     RCLCPP_DEBUG(this->get_logger(), "Robot %s position: x=%.2f, y=%.2f, level_name=%s", robot.name.c_str(),
@@ -122,6 +128,20 @@ void ResourceMonitor::fleetCallback(const std::shared_ptr<const rmf_fleet_msgs::
 // Periodically Run: Function to check and access resources
 void ResourceMonitor::checkAndAccessResources()
 {
+  // When floor change is confirmed, run release process for resources registered on other floors
+  // (e.g. elv waiting position)
+  if (floor_id_changed_)
+  {
+    for (auto& resource : route_resources_)
+    {
+      if (resource.registration_state_ && resource.floor_id_ != current_floor_id_)
+      {
+        releaseResource(resource);
+      }
+    }
+    floor_id_changed_ = false;
+  }
+
   for (auto& resource : route_resources_)
   {
     // Ignore resources that are not on the same floor as the robot
@@ -131,7 +151,7 @@ void ResourceMonitor::checkAndAccessResources()
     }
 
     double distance = calculateDistance(current_position_, resource.center_x_, resource.center_y_);
-
+    RCLCPP_DEBUG(this->get_logger(), "Distance to resource %s: %.2f", resource.resource_id_.c_str(), distance);
     // Request registration to server when the distance to the target resource is within the specified distance and the
     // robot is not passing
     if (distance <= resource.registration_distance_ && !resource.registration_state_)
