@@ -136,85 +136,11 @@ void ResourceMonitor::checkAndAccessResources()
     // robot is not passing
     if (distance <= resource.registration_distance_ && !resource.registration_state_)
     {
-      nlohmann::json response_json = accessResourceServer(resource, "registration");
-
-      if (!response_json.is_null())
-      {
-        int result = response_json.value("result", -1);
-
-        if (result == 1)
-        {
-          RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.",
-                      resource.resource_id_.c_str());
-          resource.registration_state_ = true;
-        }
-        else if (result == 2)
-        {
-          RCLCPP_WARN(this->get_logger(),
-                      "Registration: Resource %s is already registered by other robots, publishing obstacle.",
-                      resource.resource_id_.c_str());
-          publishObstacle(resource);
-          rclcpp::sleep_for(std::chrono::milliseconds(500));
-        }
-        else
-        {
-          RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
-                      resource.resource_id_.c_str(), result);
-          if (block_on_failure_)
-          {
-            RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
-                        resource.resource_id_.c_str());
-            publishObstacle(resource);
-          }
-          rclcpp::sleep_for(std::chrono::milliseconds(500));
-        }
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(),
-                     "Registration: Received an invalid or empty response from the server for resource %s.",
-                     resource.resource_id_.c_str());
-        if (block_on_failure_)
-        {
-          RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
-                      resource.resource_id_.c_str());
-          publishObstacle(resource);
-        }
-        rclcpp::sleep_for(std::chrono::milliseconds(500));
-      }
+      registerResource(resource);
     }
     else if (distance >= resource.release_distance_ && resource.registration_state_)
     {
-      nlohmann::json response_json = accessResourceServer(resource, "release");
-
-      if (!response_json.is_null())
-      {
-        int result = response_json.value("result", -1);
-
-        if (result == 1)
-        {
-          RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id_.c_str());
-          resource.registration_state_ = false;
-        }
-        else if (result == 2)
-        {
-          RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
-          rclcpp::sleep_for(std::chrono::milliseconds(500));
-        }
-        else
-        {
-          RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id_.c_str(),
-                       result);
-          rclcpp::sleep_for(std::chrono::milliseconds(500));
-        }
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(),
-                     "Release: Received an invalid or empty response from the server for resource %s.",
-                     resource.resource_id_.c_str());
-        rclcpp::sleep_for(std::chrono::milliseconds(500));
-      }
+      releaseResource(resource);
     }
   }
 }
@@ -237,7 +163,106 @@ double ResourceMonitor::calculateDistance(const geometry_msgs::msg::Pose& positi
   return std::sqrt(std::pow(position1.position.x - coord_x, 2) + std::pow(position1.position.y - coord_y, 2));
 }
 
-nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, const std::string& api_endpoint)
+void ResourceMonitor::registerResource(Resource& resource)
+{
+  std::string json_data = createRegistrationJson(resource);
+  nlohmann::json response_json = accessResourceServer("registration", json_data);
+  if (!response_json.is_null())
+  {
+    int result = response_json.value("result", -1);
+
+    if (result == 1)
+    {
+      RCLCPP_INFO(this->get_logger(), "Registration: Resource %s registered successfully.",
+                  resource.resource_id_.c_str());
+      resource.registration_state_ = true;
+    }
+    else if (result == 2)
+    {
+      RCLCPP_WARN(this->get_logger(),
+                  "Registration: Resource %s is already registered by other robots, publishing obstacle.",
+                  resource.resource_id_.c_str());
+      publishObstacle(resource);
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
+    }
+    else
+    {
+      RCLCPP_WARN(this->get_logger(), "Registration: Failed to register resource %s. Result code: %d",
+                  resource.resource_id_.c_str(), result);
+      if (block_on_failure_)
+      {
+        RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
+                    resource.resource_id_.c_str());
+        publishObstacle(resource);
+      }
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
+    }
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Registration: Received an invalid or empty response from the server for resource %s.",
+                 resource.resource_id_.c_str());
+    if (block_on_failure_)
+    {
+      RCLCPP_WARN(this->get_logger(), "Registration:(Blocking on failure) Publishing obstacle for resource %s",
+                  resource.resource_id_.c_str());
+      publishObstacle(resource);
+    }
+    rclcpp::sleep_for(std::chrono::milliseconds(500));
+  }
+}
+
+void ResourceMonitor::releaseResource(Resource& resource)
+{
+  std::string json_data = createReleaseJson(resource);
+  nlohmann::json response_json = accessResourceServer("release", json_data);
+  if (!response_json.is_null())
+  {
+    int result = response_json.value("result", -1);
+
+    if (result == 1)
+    {
+      RCLCPP_INFO(this->get_logger(), "Release: Resource %s Successfully.", resource.resource_id_.c_str());
+      resource.registration_state_ = false;
+    }
+    else if (result == 2)
+    {
+      RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Release: Error resource %s. Result code: %d", resource.resource_id_.c_str(),
+                   result);
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
+    }
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(), "Release: Received an invalid or empty response from the server for resource %s.",
+                 resource.resource_id_.c_str());
+    rclcpp::sleep_for(std::chrono::milliseconds(500));
+  }
+}
+
+std::string ResourceMonitor::createRegistrationJson(const Resource& resource)
+{
+  long long timestamp = getUnixTimestamp();
+  return "{\"api\":\"Registration\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
+         "\",\"resource_id\":\"" + resource.resource_id_ +
+         "\",\"timeout\":0,\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
+}
+
+std::string ResourceMonitor::createReleaseJson(const Resource& resource)
+{
+  long long timestamp = getUnixTimestamp();
+  return "{\"api\":\"Release\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
+         "\",\"resource_id\":\"" + resource.resource_id_ +
+         "\",\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
+}
+
+nlohmann::json ResourceMonitor::accessResourceServer(const std::string& api_endpoint, const std::string& json_data)
 {
   CURL* curl;
   CURLcode res;
@@ -248,19 +273,7 @@ nlohmann::json ResourceMonitor::accessResourceServer(const Resource& resource, c
 
   if (curl)
   {
-    long long timestamp = getUnixTimestamp();
     std::string url = server_url_ + "/api/" + api_endpoint;
-    std::string json_data;
-
-    if (api_endpoint == "registration")
-      json_data = "{\"api\":\"Registration\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
-                  "\",\"resource_id\":\"" + resource.resource_id_ +
-                  "\",\"timeout\":0,\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
-
-    else if (api_endpoint == "release")
-      json_data = "{\"api\":\"Release\",\"robot_id\":\"" + robot_id_ + "\",\"bldg_id\":\"" + building_id_ +
-                  "\",\"resource_id\":\"" + resource.resource_id_ +
-                  "\",\"request_id\":\"\",\"timestamp\":" + std::to_string(timestamp) + "}";
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
     struct curl_slist* headers = nullptr;

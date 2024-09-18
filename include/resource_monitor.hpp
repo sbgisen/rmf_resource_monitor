@@ -63,9 +63,14 @@ private:
     bool registration_state_;
   };
 
+  // Helper functions
   void loadResourcesFromYaml(const std::string& yaml_file);
   double calculateDistance(const geometry_msgs::msg::Pose& position1, const float coord_x, const float coord_y);
-  nlohmann::json accessResourceServer(const Resource& resource, const std::string& api_endpoint);
+  void registerResource(Resource& resource);
+  void releaseResource(Resource& resource);
+  std::string createRegistrationJson(const Resource& resource);
+  std::string createReleaseJson(const Resource& resource);
+  nlohmann::json accessResourceServer(const std::string& api_endpoint, const std::string& json_data);
   void checkAndAccessResources();
 
   void timerCallback();
