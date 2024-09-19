@@ -249,7 +249,8 @@ void ResourceMonitor::releaseResource(Resource& resource)
     else if (result == 2)
     {
       RCLCPP_WARN(this->get_logger(), "Release: Resource %s Failed.", resource.resource_id_.c_str());
-      rclcpp::sleep_for(std::chrono::milliseconds(500));
+      // This may indicate that the resource has already been released due to timeout
+      resource.registration_state_ = false;
     }
     else
     {
