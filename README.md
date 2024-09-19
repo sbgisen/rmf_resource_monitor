@@ -155,10 +155,10 @@ source install/setup.bash
 
 5. Run whatever task available
 
-    The following is an example line using the `dispatch_go_to_place` task from the [`rmf_demos_tasks` package](https://github.com/open-rmf/rmf_demos/tree/main/rmf_demos_tasks).
+    The following is an example line using the `dispatch_go_to_place` task from the [`rmf_demos_tasks` package](https://github.com/open-rmf/rmf_demos/tree/main/rmf_demos_tasks). Replace `<destination_name>`, `<robot_name>`, and `<fleet_name>` with the values used inside your Open-RMF environment.
 
     ```bash
-    ros2 run rmf_demos_tasks dispatch_go_to_place -p demo_target -R <robot_name> -F <fleet_name>
+    ros2 run rmf_demos_tasks dispatch_go_to_place -p <destination_name> -R <robot_name> -F <fleet_name>
     ```
 
 6. (For testing behaviors) Register to a resource using a dummy robot ID
