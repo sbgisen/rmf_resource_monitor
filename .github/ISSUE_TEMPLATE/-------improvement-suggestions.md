@@ -1,5 +1,6 @@
 ---
 name: Improvement Suggestions
+about: Improvement suggestions
 title: ''
 labels: ''
 assignees: ''
