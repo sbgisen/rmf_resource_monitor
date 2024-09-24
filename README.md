@@ -2,21 +2,13 @@
 
 ROS 2 node for accessing a **Resource Management Server** and using its results for publishing obstacle information for the Open-RMF fleets to use.
 
-## About Resource Management Server
+## Overview
 
-Resource Management Server is a concept standardized by [RFA (Robot Friendly Asset Promotion Association)](https://robot-friendly.org/).
-
-The server is responsible for managing the occupation status of the "resources (places that only one robot can pass at a time such as narrow aisles)" inside buildings and is expected to serve as a bridge for sharing blockage information between separate robot fleets managed by separate systems (either based on Open-RMF or not).
-![Resource Management Server](.readme/bridging_fleet_systems.png)
-Each robots trying to pass the resource are expected to "register" to the resource by accessing the server before entering the resource.  Information about the resource is expected to be shared beforehand to all fleet system managers by the Resource Management Server operator.
-
-Such servers and agreements to use it are necessary because the robots working inside a certain building does not always belong to the same fleet management system.
+See [here](https://github.com/sbgisen/resource_management_server?tab=readme-ov-file#about-resource-management-server) for explanation on Resource Management Server.
 
 In this repository, we provide a ROS 2 node that accesses the Resource Management Server and uses its results for publishing obstacle information for the Open-RMF fleets to use.
 
 The following are some example movies showing RViz visualization of the obstacle information published by this node. 2 robots (both operated by separate Open-RMF systems) are trying to pass a "resource" (made to look like a narrow aisle).
-
-The obstacle appears and the lanes are blocked for the robot on the right side when the other robot (the one coming from the left side) registers to the resource and disappears when the robot releases the resource.
 
 <table>
   <tr>
@@ -36,6 +28,8 @@ The obstacle appears and the lanes are blocked for the robot on the right side w
     <td align="center">Actual Movement (White one works on RMF A, Black one on RMF B)</td>
   </tr>
 </table>
+
+The obstacle appears and the lanes are blocked for the robot on the right side when the other robot (the one coming from the left side) registers for the resource first. The obstacle disappears when the other robot finishes passing the resource and releases it. Internally, the robot on the right side is trying to register for the resource but fails due to the other robot's registration. It tries to register again and again until it succeeds.
 
 ## Related Repositories
 
@@ -98,7 +92,11 @@ The config file created here will be referred to as **Config File C** hereinafte
 
 ### Prepare Open-RMF Traffic
 
-TODO
+Prepare the Open-RMF Traffic using the official Traffic Editor.
+Make sure that the lanes and nodes are set up so that it can correctly block and unblock lanes when the obstacle messages are published.
+
+>[!Note]
+Discussion on how to select appropriate waiting points is still ongoing. Guidelines will be provided in the future by RFA.
 
 ### Add Lane Blocking Support to Fleet Adapter
 
