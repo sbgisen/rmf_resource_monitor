@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rmf_resource_monitor</name>
+  <version>0.0.1</version>
+  <description>The resource_monitor package</description>
+  <maintainer email="SBGRP-git@g.softbank.co.jp">SoftBank Corp.</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>rmf_fleet_msgs</depend>
+  <depend>rmf_obstacle_msgs</depend>
+  <depend>curl</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

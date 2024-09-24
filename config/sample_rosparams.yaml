@@ -1,0 +1,10 @@
+---
+rmf_resource_monitor:
+  ros__parameters:
+    robot_id: "my_robot"
+    building_id: "my_building"
+    server_url: "http://127.0.0.1:5000"
+    resource_config_file: "path/to/resource_list.yaml"
+    resource_registration_distance: 3.4
+    resource_release_distance: 4.0
+    block_on_failure: false  # If true, the node will publish obstacles when it fails to connect to the server
